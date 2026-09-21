@@ -32,7 +32,7 @@ async function seedAdminUser() {
      ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
     [adminUsername, hash]
   );
-  console.log(`Seeded user "${adminUsername}"`);
+  console.log('Seeded admin user');
 }
 
 function requireAuth(req, res, next) {
