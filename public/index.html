@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Threat Model Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Threat Model Tracker</h1>
+    <button id="logout" type="button" hidden>Log out</button>
+  </header>
+
+  <main>
+    <p id="message" role="alert" hidden></p>
+
+    <section id="login-view" hidden>
+      <h2>Log in</h2>
+      <form id="login-form">
+        <label>Username <input name="username" autocomplete="username" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">Log in</button>
+      </form>
+    </section>
+
+    <section id="app-view" hidden>
+      <h2>Add threat</h2>
+      <form id="threat-form">
+        <label>Title <input name="title" required maxlength="200"></label>
+        <label>STRIDE category
+          <select name="stride_category" required>
+            <option>Spoofing</option>
+            <option>Tampering</option>
+            <option>Repudiation</option>
+            <option>Information Disclosure</option>
+            <option>Denial of Service</option>
+            <option>Elevation of Privilege</option>
+          </select>
+        </label>
+        <label>Severity
+          <select name="severity" required>
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </label>
+        <label>Description <textarea name="description" rows="3"></textarea></label>
+        <button type="submit">Add</button>
+      </form>
+
+      <h2>Threats</h2>
+      <p id="empty" hidden>No threats yet.</p>
+      <table id="threats" hidden>
+        <thead>
+          <tr><th>Title</th><th>Category</th><th>Severity</th><th>Description</th><th>Created</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <h2>Add user</h2>
+      <form id="user-form">
+        <label>Username <input name="username" autocomplete="off" required maxlength="64"></label>
+        <label>Password (min 8 characters) <input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
+        <button type="submit">Create user</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
