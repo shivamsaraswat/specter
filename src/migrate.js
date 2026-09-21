@@ -43,7 +43,9 @@ async function migrate() {
 module.exports = migrate;
 
 if (require.main === module) {
-  migrate()
+  require('./config')
+    .load()
+    .then(migrate)
     .then(() => pool.end())
     .catch((err) => {
       console.error('Migration failed:', err);

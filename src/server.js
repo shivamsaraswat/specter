@@ -21,6 +21,7 @@ async function initDatabase(attempts = 10) {
 }
 
 async function main() {
+  await config.load();
   if (!config.jwtSecret) throw new Error('JWT_SECRET must be set');
   await initDatabase();
 
