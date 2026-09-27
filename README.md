@@ -1,6 +1,25 @@
-# Threat Model Tracker
+# Specter
 
-A small CRUD app for tracking STRIDE threat entries. Node.js + Express, PostgreSQL, and a single static HTML page. It exists as a simple, stateless, env-configured app to practise deploying to AWS.
+An open-source, self-hosted threat modeling platform, in early development.
+
+The goal: give Specter the context of a project (design docs, a repository, Jira/Confluence) and get a threat model back, or build one by hand on a data-flow diagram. Both paths produce the same threat model, AI suggestions are always drafts with citations that a human accepts or rejects, and you bring your own LLM, including a fully local one, so nothing has to leave your network.
+
+> **Current status: Phase 0.** Today Specter is a small CRUD app for tracking STRIDE threat entries (Node.js + Express, PostgreSQL, a single static HTML page), already deployable to AWS. Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
+
+## Roadmap
+
+Built one phase at a time; each phase ends with something usable.
+
+| Phase | Goal | Release |
+| --- | --- | --- |
+| 0 ✅ | CRUD tracker for STRIDE threats, deployed to AWS | — |
+| 1 | Re-platform to a TypeScript monorepo (React, Express, Postgres) with a real domain model: projects, threat models, diagram elements, threats, mitigations. Existing data is migrated | — |
+| 2 | Manual threat modeling: data-flow-diagram editor with trust boundaries, rule-based STRIDE-per-element threat generation, threat lifecycle and risk scoring, reports, OTM and Threat Dragon import/export | v0.1 |
+| 3 | AI threat models from uploaded docs or pasted text, with citations and human review. Bring your own LLM: Anthropic, OpenAI, Bedrock/Azure, or local models via Ollama/vLLM | v0.2 |
+| 4 | Threat models from code repositories and IaC (Terraform, Kubernetes, compose), with drift detection as the code changes | v0.3 |
+| 5 | Integrations: Jira/Confluence context, threats pushed as tickets, automatic design reviews on PRs and tickets, MCP server, CLI | v0.4 |
+| 6 | Enterprise readiness: RBAC, SSO (OIDC/SAML), audit log, versioning and approvals, Helm chart | v1.0 |
+| 7 | More methodologies and frameworks: LINDDUN, MAESTRO (agentic AI), attack trees, ATT&CK/CAPEC/CWE mapping, compliance mapping | v1.x |
 
 ## Run locally with Docker
 
@@ -26,7 +45,7 @@ npm start
 
 The app does not read `.env` itself — export the variables (e.g. `set -a; source .env; set +a`) or set them in your process manager.
 
-On startup the app applies any pending SQL files from `db/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `npm run migrate` runs only the migrations.
+On startup the app applies any pending SQL files from `db/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `npm run migrate` runs only the migrations. `npm test` runs the test suite.
 
 ## Environment variables
 
@@ -61,9 +80,12 @@ If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can
 
 Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for curl examples and error codes.
 
-## Deployment notes
+## Deployment
 
 - Config is entirely environment variables; nothing is read from local files.
 - Logs go to stdout/stderr.
 - Point the load balancer health check at `/health`.
 - The compose defaults for `JWT_SECRET` and passwords are for local use only — set real values in any deployed environment.
+- The app reads its secrets from AWS Secrets Manager when configured to (see `src/config.js`).
+
+A reference deployment (ALB → private EC2 → RDS, Secrets Manager, CloudWatch) has been run against this app on AWS; a generic public write-up isn't published yet.
