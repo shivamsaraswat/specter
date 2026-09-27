@@ -207,7 +207,7 @@ action (plan.md, research.md #9).
   `integration_id: 15368` is re-verified empirically at T019, against a real check run from T018,
   before this file is actually applied.)*
 - [x] T017 [P] [US1] *(Run 2026-09-27: `rhysd/actionlint:1.7.12`, exit 0, 0 findings.)* Lint the workflow files locally without installing anything globally: `docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:<version> -color`. Replace `<version>` with an explicit release tag, resolved once with `gh api repos/rhysd/actionlint/releases/latest --jq .tag_name` with the leading `v` stripped. Never use `latest`. Record the tag in the research.md #10 "Resolved pins" table and reuse it in T022 and T027. Fix every finding in `.github/workflows/ci.yml` and `.github/actions/setup-workspace/action.yml`.
-- [ ] T018 [US1] **⚠ confirm**:
+- [x] T018 [US1] **⚠ confirm** *(Done 2026-09-27; approved by the maintainer.)*:
   1. Push the branch.
   2. Open a PR to `main` titled `ci: add CI pipeline, CodeQL, Dependabot (Phase 1 M2)`. The body MUST contain two sections (constitution, Development Workflow & Quality Gates):
      - **Principles I–VI**: one line per principle, saying how the change satisfies it (VI is N/A).
@@ -223,10 +223,29 @@ action (plan.md, research.md #9).
   4. Record the run URL in the PR description.
 
   This must happen before T019, so that the four check names are confirmed to exist, spelled exactly as they report, before the ruleset requires them. A misspelled required check would block every merge.
-- [ ] T019 [US1] **⚠ confirm** Apply the repository settings for US1, one command at a time, each after explicit maintainer approval:
+
+  **Confirmed**: pushed `feat/phase-1`, opened
+  [PR #3](https://github.com/shivamsaraswat/specter/pull/3). All four checks passed within ~1
+  minute of the push (run
+  [36340994815](https://github.com/shivamsaraswat/specter/actions/runs/36340994815)), well inside
+  the 10-minute SC-003 budget. The run URL is recorded in the PR description. **Also observed**:
+  GitHub's CodeQL *default setup* is currently `configured` (query suite `extended`) and already
+  posts an "Analyze (javascript-typescript)" check — expected per research.md #3/#9; it will be
+  disabled at T023 before the advanced-setup `codeql.yml` (T021) is added, to avoid the two
+  colliding. A pre-existing third-party app, Socket Security, also posts informational checks;
+  it is unrelated to this feature and out of scope.
+- [x] T019 [US1] **⚠ confirm** *(Done 2026-09-27; approved by the maintainer.)* Apply the repository settings for US1, one command at a time, each after explicit maintainer approval:
   1. `gh api -X PUT repos/{repo}/actions/permissions/workflow -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false`
   2. `gh api repos/{repo}/actions/permissions/fork-pr-contributor-approval`. Confirm the value is `first_time_contributors` or stricter, and leave it unchanged.
   3. `gh api -X POST repos/{repo}/rulesets --input .github/rulesets/main.json`, then record the returned ruleset `id` for docs/ci.md (T030).
+
+  **Confirmed**: `integration_id: 15368` was verified against PR #3's real check runs (all four
+  reported by `app.slug: "github-actions"`, `app.id: 15368`) before applying the ruleset — no
+  correction was needed. Command 1 was a no-op: `default_workflow_permissions` was already
+  `read`, `can_approve_pull_request_reviews` already `false`. Command 2: `fork-pr-contributor-approval`
+  was already `first_time_contributors`; left unchanged. Command 3: ruleset created, **id
+  `24080645`**, `enforcement: active`, `bypass_actors: []`,
+  `current_user_can_bypass: "never"` — matching spec FR-008 exactly (no bypass, admin included).
 - [ ] T020 [US1] **⚠ confirm** Run quickstart.md §2–§4 against the live repo. **Runs after the merge point**: the CI PR must already be merged into `main` (end of T033), and every canary branch must be cut from that updated `main`. A canary branched from a `main` without the workflows gets no checks, so it would stay blocked and prove nothing.
   - The clean PR and four canary PRs, including the `debugger;` lint canary. Each canary must fail exactly the checks spec SC-002 lists for it.
   - The superseded-run cancellation.
@@ -250,7 +269,7 @@ action (plan.md, research.md #9).
 
 ### Implementation for User Story 2
 
-- [ ] T021 [P] [US2] Create `.github/workflows/codeql.yml`:
+- [x] T021 [P] [US2] Create `.github/workflows/codeql.yml`:
   - `name: CodeQL`
   - `on`: `pull_request: {branches: [main]}`, `push: {branches: [main]}`, `schedule: [{cron: '23 4 * * 1'}]` (weekly, Monday) and `workflow_dispatch`
   - Top-level `permissions: {contents: read}`
@@ -265,10 +284,14 @@ action (plan.md, research.md #9).
     3. `github/codeql-action/analyze@<SHA> # <tag>` with `category: "/language:${{ matrix.language }}"`
 
   Use the same SHA for `init` and `analyze`, from T002.
-- [ ] T022 [US2] Run actionlint (the T017 command) on `.github/workflows/codeql.yml` and fix any findings.
-- [ ] T023 [US2] **⚠ confirm**
+- [x] T022 [US2] *(Run 2026-09-27: exit 0, 0 findings.)* Run actionlint (the T017 command) on `.github/workflows/codeql.yml` and fix any findings.
+- [x] T023 [US2] **⚠ confirm** *(Done 2026-09-28; approved by the maintainer.)*
   1. Run `gh api repos/{repo}/code-scanning/default-setup --jq .state`.
   2. If it is not `not-configured`, then only after approval run `gh api -X PATCH repos/{repo}/code-scanning/default-setup -f state=not-configured`. Advanced setup uploads are rejected while default setup is on (research.md #3).
+
+  **Confirmed**: state was `configured` (query suite `extended`, as observed at T018). Disabled;
+  state is now `not-configured`. The advanced-setup `codeql.yml` (T021, `security-and-quality`)
+  is the only CodeQL configuration running from here on.
 - [ ] T024 [US2] **⚠ confirm** Run quickstart.md §5. **Runs after the merge point**: the CI PR must already be merged into `main` (end of T033), and every canary branch must be cut from that updated `main`. A canary branched from a `main` without the workflows gets no checks, so it would stay blocked and prove nothing.
   1. Open a canary PR that adds a route in `apps/api/src/routes/` building SQL by string concatenation from `req.query`.
   2. Confirm a finding appears on the PR and under Security → Code scanning, and that the four required checks still decide whether it can merge.
@@ -294,7 +317,7 @@ action (plan.md, research.md #9).
 
 ### Implementation for User Story 3
 
-- [ ] T025 [P] [US3] Create `.github/dependabot.yml` (`version: 2`) per contracts/ci-checks.md. Each ecosystem gets `schedule: {interval: weekly, day: monday}` and `open-pull-requests-limit: 5`.
+- [x] T025 [P] [US3] Create `.github/dependabot.yml` (`version: 2`) per contracts/ci-checks.md. Each ecosystem gets `schedule: {interval: weekly, day: monday}` and `open-pull-requests-limit: 5`.
   - **npm**:
     - `directory: "/"`, `cooldown: {default-days: 2}`
     - `groups: {npm-minor-patch: {update-types: [minor, patch]}}`
@@ -306,7 +329,7 @@ action (plan.md, research.md #9).
     - `directories: ["/", "/.github/actions/*"]`
     - `groups: {actions-minor-patch: {update-types: [minor, patch]}}`
   - Do not configure `labels` (Dependabot creates `dependencies` itself), and do not configure auto-merge (FR-022).
-- [ ] T026 [P] [US3] Create `.github/workflows/audit.yml`:
+- [x] T026 [P] [US3] Create `.github/workflows/audit.yml`:
   - `name: Audit`
   - `on`: `schedule: [{cron: '17 5 * * *'}]` (daily) and `workflow_dispatch`. Never on PRs, and never a required check (FR-020a).
   - Top-level `permissions: {contents: read}`
@@ -317,10 +340,15 @@ action (plan.md, research.md #9).
     4. `name: Fail on high or critical`, `run: pnpm audit --audit-level=high`
 
   Two steps are needed because `--audit-level` also filters what gets printed (research.md #2).
-- [ ] T027 [US3] Run actionlint (the T017 command) on `.github/workflows/audit.yml`. Then check `.github/dependabot.yml` against the schema: `docker run --rm -v "$PWD":/repo -w /repo python:3-alpine sh -c "pip install -q check-jsonschema==<version> && check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml"`. Replace `<version>` with the current release, resolved once with `pip index versions check-jsonschema` inside the same container, and record it in the research.md #10 "Resolved pins" table. Fix any findings.
-- [ ] T028 [US3] **⚠ confirm** Enable Dependabot alerts and security updates, one command at a time, each after approval:
+- [x] T027 [US3] *(Run 2026-09-27/28: actionlint exit 0, 0 findings. `check-jsonschema==0.38.2`: "ok -- validation done".)* Run actionlint (the T017 command) on `.github/workflows/audit.yml`. Then check `.github/dependabot.yml` against the schema: `docker run --rm -v "$PWD":/repo -w /repo python:3-alpine sh -c "pip install -q check-jsonschema==<version> && check-jsonschema --builtin-schema vendor.dependabot .github/dependabot.yml"`. Replace `<version>` with the current release, resolved once with `pip index versions check-jsonschema` inside the same container, and record it in the research.md #10 "Resolved pins" table. Fix any findings.
+- [x] T028 [US3] **⚠ confirm** *(Done 2026-09-28; approved by the maintainer.)* Enable Dependabot alerts and security updates, one command at a time, each after approval:
   1. `gh api -X PUT repos/{repo}/vulnerability-alerts`
   2. `gh api -X PUT repos/{repo}/automated-security-fixes`
+
+  **Confirmed**: both were already enabled (vulnerability-alerts: 204/enabled; automated-security-fixes:
+  `{"enabled":true,"paused":false}`) before the PUTs ran. The commands confirmed rather than
+  changed the state. Documented anyway in docs/ci.md (T030) so the setting can be recreated if it
+  is ever turned off.
 - [ ] T029 [US3] **⚠ confirm** After the PR merges, run quickstart.md §6–§7:
   1. The npm dependency count from the filtered SBOM `jq` query in §6 must be roughly equal to the number of `packages:` entries in `pnpm-lock.yaml`, and not merely non-zero.
   2. Run `gh workflow run audit.yml` and `gh run watch`. The report must print, and the run must fail only on high or critical advisories.
@@ -335,7 +363,7 @@ action (plan.md, research.md #9).
 
 **Purpose**: documentation (FR-023, FR-024), the constitution amendment (FR-025), and final validation.
 
-- [ ] T030 [P] Create `docs/ci.md` with these sections:
+- [x] T030 [P] Create `docs/ci.md` with these sections:
   1. **Checks**: a table of each required check, what it runs, its local equivalent and its timeout, copied from contracts/ci-checks.md.
   2. **Running checks locally**: `corepack enable`, `docker compose up -d db`, then `pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && docker build .`. Explain that `globalSetup` migrates and seeds automatically.
   3. **Merge gate**: PRs only, no bypass. The emergency path is `gh api -X PUT repos/{repo}/rulesets/<id>` with `enforcement` set to `disabled`, then `active` to restore it. Include the ruleset id from T019 and point to `.github/rulesets/main.json` to recreate it.
@@ -348,12 +376,12 @@ action (plan.md, research.md #9).
   7. **CodeQL**: findings are informational, the suite is `security-and-quality`, and a dismissal needs a written reason.
   8. **Audit**: the two-step behavior.
   9. **Scheduled workflows**: GitHub disables them after 60 days without repository activity. Re-enable them in the Actions tab.
-- [ ] T031 [P] Update the Development section of `README.md`:
+- [x] T031 [P] Update the Development section of `README.md`:
   - Add `corepack enable` as the first setup step.
   - Add a short "CI" paragraph: the four required checks, PRs only to `main`, and a link to `docs/ci.md`.
 
   Do not create `CONTRIBUTING.md`, which is Milestone 7's scope.
-- [ ] T032 [P] Amend `.specify/memory/constitution.md` to **v1.2.0** (MINOR):
+- [x] T032 [P] *(Done 2026-09-28.)* Amend `.specify/memory/constitution.md` to **v1.2.0** (MINOR):
   1. **Sync Impact Report**: version 1.1.0 → 1.2.0, with the rationale and the changed sections.
   2. **Principle II** and **Development Workflow & Quality Gates**: rewrite "Once Phase 1's CI lands…" and "…once it lands" in the present tense, naming the four required checks, CodeQL (informational) and Dependabot.
   3. **Threat Model**: add bullets for the CI supply-chain trust boundary:

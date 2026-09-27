@@ -1,0 +1,168 @@
+# Continuous Integration
+
+This documents the CI pipeline added in Phase 1 / Milestone 2 of `plan.md`
+(`specs/002-ci-pipeline/`): the four required checks, static analysis, dependency updates, and
+every repository setting that isn't a file in this repo.
+
+## Checks
+
+| Check (job) | What it runs | Local equivalent | Timeout |
+| --- | --- | --- | --- |
+| `typecheck` | `pnpm typecheck` (`tsc --noEmit` in every package) | `pnpm typecheck` | 10 min |
+| `lint` | `pnpm lint` (ESLint in every package), then the [lockfile-format guard](#lockfile-format) | `pnpm lint` | 10 min |
+| `test` | `pnpm test` (Vitest in every package; a `globalSetup` migrates the database and seeds the admin user) against a real `postgres:16-alpine` service container | `docker compose up -d db && pnpm test` | 15 min |
+| `docker-build` | `docker build --pull .` (never pushed anywhere) | `docker build .` | 15 min |
+
+All four run on every pull request to `main`, on every push to `main`, and on demand
+(`workflow_dispatch`). They're defined in `.github/workflows/ci.yml`; the Node/pnpm setup steps
+shared across `typecheck`, `lint`, `test` and the `audit` job live in
+`.github/actions/setup-workspace`.
+
+Two other workflows run but are **not required checks**:
+
+| Workflow (job) | Trigger | Blocks merging? |
+| --- | --- | --- |
+| CodeQL (`analyze`) | PR, push to `main`, weekly, on demand | No — see [CodeQL](#codeql) |
+| Audit (`audit`) | Daily, on demand | No — see [Audit](#audit) |
+
+## Running checks locally
+
+```sh
+corepack enable            # gives you the exact pnpm version CI uses (packageManager)
+docker compose up -d db    # only the database
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint
+pnpm test
+docker build .
+```
+
+`pnpm test` migrates the database and seeds the admin user itself (via a Vitest `globalSetup`),
+so this works against a freshly created database volume — you don't need to have run the full
+app first.
+
+## Merge gate
+
+`main` only accepts pull requests: direct pushes, force pushes and branch deletion are rejected.
+A pull request cannot merge unless `typecheck`, `lint`, `test` and `docker-build` have all passed
+on its latest commit. **Nobody can bypass this, including repository admins** — there are no
+bypass actors on the ruleset.
+
+- **Ruleset ID**: `24080645` (`shivamsaraswat/specter`, target `main`).
+- **Definition**: `.github/rulesets/main.json`. This is the file to recreate the ruleset from if
+  it's ever deleted:
+
+  ```sh
+  gh api -X POST repos/shivamsaraswat/specter/rulesets --input .github/rulesets/main.json
+  ```
+
+- **Emergency path**: if the hosting platform itself is down and no check can report at all, the
+  only way through the gate is to temporarily disable the ruleset, then restore it:
+
+  ```sh
+  # Disable (emergency only):
+  gh api -X PUT repos/shivamsaraswat/specter/rulesets/24080645 \
+    --input <(gh api repos/shivamsaraswat/specter/rulesets/24080645 | jq '.enforcement = "disabled"')
+
+  # Restore once the merge has gone through:
+  gh api -X PUT repos/shivamsaraswat/specter/rulesets/24080645 \
+    --input <(gh api repos/shivamsaraswat/specter/rulesets/24080645 | jq '.enforcement = "active"')
+  ```
+
+  A normal broken check (a bug in the pipeline itself, a pinned action failing) does **not**
+  qualify for this — fix it with a pull request like any other change, which runs its own,
+  corrected version of the checks.
+
+## Repository settings with no file equivalent
+
+These aren't in any committed file — they're applied directly against the GitHub API. Each
+command below both documents and recreates the setting.
+
+| Setting | Value | Recreate with |
+| --- | --- | --- |
+| Merge-gate ruleset | Active, id `24080645`, no bypass actors | see [Merge gate](#merge-gate) above |
+| Dependabot alerts | Enabled | `gh api -X PUT repos/shivamsaraswat/specter/vulnerability-alerts` |
+| Dependabot security updates | Enabled | `gh api -X PUT repos/shivamsaraswat/specter/automated-security-fixes` |
+| CodeQL default setup | Disabled (the advanced-setup `codeql.yml` runs instead) | `gh api -X PATCH repos/shivamsaraswat/specter/code-scanning/default-setup -f state=not-configured` |
+| Default `GITHUB_TOKEN` permissions | Read-only; cannot approve PRs | `gh api -X PUT repos/shivamsaraswat/specter/actions/permissions/workflow -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false` |
+| Fork PR workflow approval | `first_time_contributors` (GitHub's default) | left as-is; verify with `gh api repos/shivamsaraswat/specter/actions/permissions/fork-pr-contributor-approval` |
+
+**Scheduled workflows note**: GitHub disables scheduled workflows on public repositories after
+60 days with no repository activity. If the weekly CodeQL run or the daily audit run stops firing,
+re-enable it from the Actions tab.
+
+## Lockfile format
+
+`pnpm-lock.yaml` must be a single YAML document — no line matching `^---`. The `lint` check fails
+the build if it ever isn't.
+
+**Why**: pnpm ≥ 11 writes `pnpm-lock.yaml` as *two* concatenated YAML documents when it manages
+its own version (an "env" document with `packageManagerDependencies`, followed by the real
+lockfile). GitHub's dependency graph parser reads only the first document, so it reports **zero
+dependencies** for the whole workspace and silently disables Dependabot alerts and security
+updates ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904),
+open with no fix scheduled as of this writing).
+
+**The trade-off**: `pnpm-workspace.yaml` sets `pmOnFail: ignore`, which is the only value that
+makes pnpm write a single document. The cost is that pnpm no longer checks the running pnpm
+version against `packageManager` itself. This is compensated for:
+
+- CI and the Docker build both install the exact pinned version via Corepack
+  (`pnpm/action-setup` reads `packageManager`; the Dockerfile runs `corepack enable`).
+- `pnpm install --frozen-lockfile` still fails on any lockfile/manifest drift.
+- Contributors are told to run `corepack enable` (see the top-level README).
+
+**Revert this** once dependabot-core#15904 ships: remove `pmOnFail: ignore` from
+`pnpm-workspace.yaml`, remove the `lint` job's lockfile-format guard step in `ci.yml`, and let
+pnpm regenerate the lockfile normally.
+
+## Dependabot
+
+Weekly (Monday), grouped per ecosystem for minor/patch updates:
+
+- **npm** (`/`) — a 2-day cooldown on new releases (`cooldown.default-days: 2`), which exceeds
+  pnpm's own 24-hour `minimumReleaseAge` protection.
+  - **Known limitation**: the cooldown only covers *direct* dependencies. A Dependabot PR can
+    still fail with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` if a *transitive* dependency was
+    published in the last 24 hours. If that happens, comment `@dependabot recreate` on the PR the
+    next day.
+- **docker** (`/`) — the base image is pinned as `node:22-alpine@sha256:<digest>`, so weekly runs
+  propose digest refreshes (patch releases, security rebuilds of the same tag). Node major-version
+  bumps are ignored deliberately — moving to a new Node major is a human decision, and CI follows
+  it automatically once the Dockerfile changes.
+- **github-actions** (`/` and `/.github/actions/*`) — keeps the pinned commit SHAs (and their
+  `# vX.Y.Z` comments) in `ci.yml`, `codeql.yml`, `audit.yml` and the composite action current.
+
+Updates that fix a published security advisory are proposed immediately, individually, without
+waiting for the weekly schedule or the cooldown. No proposal is auto-merged — a maintainer reviews
+and merges each one once its checks pass.
+
+## CodeQL
+
+Advanced setup (`.github/workflows/codeql.yml`), analyzing `javascript-typescript` and `actions`
+(the workflow files themselves), with the broadest built-in query suite: `security-and-quality`
+(`security-extended` plus code-quality queries). Runs on PRs, on pushes to `main`, weekly, and on
+demand.
+
+Findings are **informational** — they show up on the pull request and under Security → Code
+scanning, but never block a merge on their own. The first run under the broadened suite may
+surface a number of existing quality findings; that's expected, and the backlog is worked down
+over time rather than blocking anything.
+
+Dismissing a finding as a false positive or "won't fix" needs a written reason in the dismissal.
+
+## Audit
+
+`.github/workflows/audit.yml` is a second, independent source of dependency advisories, since the
+lockfile-format fix above is a workaround for an open upstream bug. It runs daily and on demand,
+never on pull requests, and is never a required check.
+
+It runs two steps:
+
+1. `pnpm audit` — prints the full report at every severity. Marked `continue-on-error: true`, so
+   this step never fails the job by itself.
+2. `pnpm audit --audit-level=high` — the actual gate. Fails the job only on **high or critical**
+   advisories. (`--audit-level` filters what gets *printed*, not just the exit code, which is why
+   this needs two separate steps rather than one.)
+
+A failed scheduled run notifies maintainers through GitHub's standard workflow-failure email.
