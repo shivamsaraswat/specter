@@ -52,11 +52,11 @@ if (isMainModule) {
     .load()
     .then(migrate)
     .then(() => db.end())
-    .catch((err: unknown) => {
-      // Log only the message, not the raw error object — it can carry driver-attached
-      // fields (query text, connection detail) derived from env-sourced config.
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('Migration failed:', message);
+    .catch(() => {
+      // No error detail logged here on purpose: config.load() and migrate() failures
+      // may carry driver-attached data derived from env-sourced config (connection
+      // string, query text) on any property of the caught value.
+      console.error('Migration failed');
       process.exit(1);
     });
 }
