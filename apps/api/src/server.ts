@@ -23,7 +23,13 @@ async function initDatabase(attempts = 10): Promise<void> {
 
 async function main(): Promise<void> {
   await config.load();
-  if (!config.jwtSecret) throw new Error('JWT_SECRET must be set');
+  if (!config.jwtSecret) {
+    // Hardcoded, literal message — safe to log directly, unlike the generic catch-all
+    // below (which may be reached by DB/secrets-manager errors carrying env-derived data).
+    console.error('Startup failed: JWT_SECRET must be set');
+    process.exit(1);
+    return;
+  }
   await initDatabase();
 
   const server = app.listen(config.port, () => {
@@ -39,10 +45,11 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-main().catch((err: unknown) => {
-  // Log only the message, not the raw error object — it can carry driver-attached
-  // fields (query text, connection detail) derived from env-sourced config.
-  const message = err instanceof Error ? err.message : String(err);
-  console.error('Startup failed:', message);
+main().catch(() => {
+  // No error detail logged here on purpose: this is the top-level catch-all, and any
+  // property of the caught value could carry driver-attached data derived from
+  // env-sourced config (connection string, query text). The DB-readiness retry loop
+  // above already logs its own failures in detail before giving up.
+  console.error('Startup failed');
   process.exit(1);
 });
