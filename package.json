@@ -1,22 +1,24 @@
 {
-  "name": "threat-model-tracker",
-  "version": "0.1.0",
+  "name": "specter",
   "private": true,
-  "description": "Small CRUD app for tracking STRIDE threat entries. Built as a deployment target.",
-  "main": "src/server.js",
-  "scripts": {
-    "start": "node src/server.js",
-    "migrate": "node src/migrate.js",
-    "test": "node --test test/config.test.js"
-  },
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "@aws-sdk/client-secrets-manager": "^3.1136.0",
-    "bcryptjs": "^3.0.2",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.16.0"
+  "scripts": {
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "build": "pnpm -r run build"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.2",
+    "eslint": "^10.11.0",
+    "@eslint/js": "^10.0.1",
+    "typescript-eslint": "^8.70.1",
+    "prettier": "^3.9.9"
   }
 }

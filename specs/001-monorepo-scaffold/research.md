@@ -10,6 +10,15 @@ this planning phase.
 **Decision**: Compile with `tsc` to `dist/` for the artifact that actually ships (Docker image,
 `pnpm start`); use `tsx` for local dev (`pnpm dev`, hot-reload) and let Vitest transform TS
 in-memory for tests (its default, via esbuild) — no separate compile step needed to run tests.
+Pin the `typescript` package to the `^6.0.3` line (the latest stable release still inside
+`@typescript-eslint`'s peer range, `>=4.8.4 <6.1.0`), not the newer `typescript@7.x` line —
+verified against the npm registry during implementation: `@typescript-eslint` 8.70.1 does not
+yet declare support for TypeScript 7 (a from-scratch, differently-architected compiler), so
+adopting it now would silently break type-aware linting.
+
+**Amendment (discovered during implementation, T012)**: this decision was revised from an
+initial, untested "TypeScript 5.x" assumption once the actual registry state was checked —
+TypeScript 5.x is no longer the newest release compatible with the lint toolchain; 6.0.3 is.
 
 **Rationale**: Node 22 (the Dockerfile's base image) supports experimental type-stripping, but
 stripping does not type-check — it would let a type error ship silently, which directly
@@ -59,9 +68,11 @@ needs it.
 
 ## 4. Lint/format configuration
 
-**Decision**: ESLint flat config (`eslint.config.js`), with `@typescript-eslint`'s
-type-aware recommended rules, plus Prettier run as a separate formatting step (not through
-ESLint) with a shared `.prettierrc` at the repo root.
+**Decision**: ESLint flat config (`eslint.config.js`), using the combined `typescript-eslint`
+package's type-aware recommended config (`tseslint.configs.recommendedTypeChecked`) — not
+separate `@typescript-eslint/parser`/`@typescript-eslint/eslint-plugin` installs — plus Prettier
+run as a separate formatting step (not through ESLint) with a shared `.prettierrc` at the repo
+root.
 
 **Rationale**: Flat config is ESLint's current, non-legacy configuration format, and running
 Prettier separately from ESLint (rather than via an ESLint-Prettier bridge) avoids lint/format
@@ -92,6 +103,17 @@ intent without changing the deployment model (still one image, same `docker comp
 - Single-stage build that keeps dev dependencies in the final image — rejected: larger image,
   unused attack surface (build tools present in a running container), no upside.
 
+**Amendment (discovered during implementation, T035)**: the "pruned production node_modules"
+step uses `pnpm --filter=@specter/api deploy --prod /prod/api` (pnpm's own workspace-aware
+deploy command — verified it copies exactly the prod dependency closure, e.g. 5 packages, none
+of the 7 devDependencies) rather than hand-rolling a prune step. Root `package.json` now pins
+`"packageManager": "pnpm@12.6.0"` (discovered mid-implementation that an unpinned Corepack
+fetches whatever pnpm build is current — it silently jumped from the locally-prepared 9.15.9 to
+12.6.0 inside the builder stage — so pinning keeps local and image builds identical). pnpm
+12's default build-script blocking (`ERR_PNPM_IGNORED_BUILDS`) also required an explicit
+`allowBuilds: { esbuild: true }` in `pnpm-workspace.yaml`, since Vitest's `esbuild` dependency
+needs its install-time native-binary postinstall script to run.
+
 ## 6. Migration runner behavior
 
 **Decision**: Port `src/migrate.js` to `apps/api/src/migrate.ts` with identical logic — it still
@@ -111,9 +133,12 @@ language the script is written in.
 threats, users — see `contracts/api-contract.md`) require a locally running Postgres, started
 with `docker compose up -d db` before `pnpm run test`. They read connection settings from the
 same environment variables the app itself uses (defaulting to `docker-compose.yml`'s dev
-values). This is documented as a prerequisite in `README.md`'s Development section and in
-`quickstart.md`, and is deliberately *not* blocked on Phase 1 Milestone 2's CI Postgres service
-container — that's separate, CI-specific wiring for a later milestone.
+values), loaded for local runs from a gitignored `.env.test` at the repo root via a Vitest
+`setupFiles` script (`apps/api/test/env.setup.ts`, using `process.loadEnvFile`) rather than
+requiring every contributor to export them by hand. This is documented as a prerequisite in
+`README.md`'s Development section and in `quickstart.md`, and is deliberately *not* blocked on
+Phase 1 Milestone 2's CI Postgres service container — that's separate, CI-specific wiring for a
+later milestone.
 
 **Rationale**: Unlike `config.ts`'s `load()`, the threats/users/login routes have no injectable
 seam around their database access — that's true of the pre-port app today as well, and this
@@ -133,3 +158,13 @@ locally running `docker compose` Postgres provides without requiring any new too
 - `testcontainers` (spin up an ephemeral Postgres per test run) — rejected for now: a real
   dependency and moving part this milestone doesn't need when `docker compose up -d db` already
   works for local development; worth revisiting once Milestone 2's CI needs the same capability.
+
+**Amendment (discovered during implementation, T034/T036)**: the pre-port `docker-compose.yml`
+never published the `db` service's port to the host — only the `app` container could reach it,
+over the compose network. A host-run `pnpm run test` (or `pnpm --filter @specter/api migrate`)
+had no way to reach Postgres at all. Added `ports: ["${DB_PORT:-5432}:5432"]` to the `db`
+service, reusing the app's own `DB_PORT` env var for the host-side mapping. This is a new port
+mapping on an existing service, not a new service, so it doesn't change FR-005's "no new
+required service" bar — but it is a real, deliberate change to `docker-compose.yml` beyond pure
+1:1 porting, made so this milestone's own contract tests (and local `migrate` runs) are
+actually reachable outside a container.

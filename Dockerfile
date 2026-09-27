@@ -1,15 +1,26 @@
-FROM node:22-alpine
+FROM node:22-alpine AS builder
+RUN corepack enable
+WORKDIR /app
 
+# Install first with only the manifests, so this layer caches across source-only changes.
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
+COPY apps/api/package.json ./apps/api/package.json
+RUN pnpm install --frozen-lockfile
+
+COPY apps/api ./apps/api
+RUN pnpm --filter @specter/api run build
+RUN pnpm --filter=@specter/api deploy --prod /prod/api
+
+FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-COPY src ./src
-COPY db ./db
-COPY public ./public
+COPY --from=builder /prod/api/node_modules ./node_modules
+COPY --from=builder /prod/api/dist ./dist
+COPY --from=builder /prod/api/db ./db
+COPY --from=builder /prod/api/public ./public
+COPY --from=builder /prod/api/package.json ./package.json
 
 USER node
 EXPOSE 3000
-CMD ["node", "src/server.js"]
+CMD ["node", "dist/server.js"]

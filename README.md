@@ -35,17 +35,44 @@ Data lives in the `pgdata` volume. `docker compose down -v` wipes it.
 
 ## Run without Docker
 
-Requires Node 20+ and a reachable Postgres.
+Requires Node 20+, pnpm, and a reachable Postgres.
 
 ```sh
-npm install
+pnpm install
 cp .env.example .env   # edit values, then export them into your shell
-npm start
+pnpm --filter @specter/api start
 ```
 
 The app does not read `.env` itself — export the variables (e.g. `set -a; source .env; set +a`) or set them in your process manager.
 
-On startup the app applies any pending SQL files from `db/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `npm run migrate` runs only the migrations. `npm test` runs the test suite.
+On startup the app applies any pending SQL files from `apps/api/db/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `pnpm --filter @specter/api migrate` runs only the migrations. `pnpm run test` runs the whole workspace's test suite.
+
+If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
+
+| Old (npm, single package) | New (pnpm workspace) |
+| --- | --- |
+| `npm install` | `pnpm install` |
+| `npm start` | `pnpm --filter @specter/api start` |
+| `npm run migrate` | `pnpm --filter @specter/api migrate` |
+| `npm test` | `pnpm run test` (whole workspace) or `pnpm --filter @specter/api test` (API only) |
+
+## Development (contributing)
+
+This is a pnpm workspace (`apps/api` is the only populated package today; more are added in
+later phases). Requires Node.js 20+ and pnpm — if you don't have pnpm, run
+`corepack enable && corepack prepare pnpm@9 --activate`. Running with an unsupported Node
+version fails fast with a clear engine-mismatch error before anything else runs.
+
+```sh
+docker compose up -d db   # only the database — the DB-backed tests below need it running
+pnpm install
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+```
+
+Each of the four commands above fans out to every workspace package (`pnpm -r run <script>`),
+so this stays a single set of top-level commands even as more packages are added later.
 
 ## Environment variables
 
@@ -86,6 +113,6 @@ Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for curl
 - Logs go to stdout/stderr.
 - Point the load balancer health check at `/health`.
 - The compose defaults for `JWT_SECRET` and passwords are for local use only — set real values in any deployed environment.
-- The app reads its secrets from AWS Secrets Manager when configured to (see `src/config.js`).
+- The app reads its secrets from AWS Secrets Manager when configured to (see `apps/api/src/config.ts`).
 
 A reference deployment (ALB → private EC2 → RDS, Secrets Manager, CloudWatch) has been run against this app on AWS; a generic public write-up isn't published yet.
