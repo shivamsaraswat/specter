@@ -59,20 +59,31 @@ If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
 ## Development (contributing)
 
 This is a pnpm workspace (`apps/api` is the only populated package today; more are added in
-later phases). Requires Node.js 20+ and pnpm — if you don't have pnpm, run
-`corepack enable && corepack prepare pnpm@9 --activate`. Running with an unsupported Node
-version fails fast with a clear engine-mismatch error before anything else runs.
+later phases). Requires Node.js 20+. Running with an unsupported Node version fails fast with a
+clear engine-mismatch error before anything else runs.
 
 ```sh
-docker compose up -d db   # only the database — the DB-backed tests below need it running
+corepack enable            # gives you the exact pnpm version this repo pins (packageManager)
+docker compose up -d db    # only the database — the DB-backed tests below need it running
 pnpm install
 pnpm run typecheck
 pnpm run lint
 pnpm run test
 ```
 
-Each of the four commands above fans out to every workspace package (`pnpm -r run <script>`),
-so this stays a single set of top-level commands even as more packages are added later.
+Each of the four `pnpm run` commands above fans out to every workspace package
+(`pnpm -r run <script>`), so this stays a single set of top-level commands even as more packages
+are added later. `pnpm run test` migrates and seeds a fresh test database itself, so this works
+even on a database volume that's never been started before.
+
+### CI
+
+Every pull request to `main` runs the same four commands above, plus a container build, as
+required checks (`typecheck`, `lint`, `test`, `docker-build`) — `main` only accepts pull requests,
+and none of the four can be skipped or bypassed. Static analysis (CodeQL) and dependency updates
+(Dependabot) run continuously but don't block merging. See [docs/ci.md](docs/ci.md) for what each
+check does, how to reproduce a failure locally, and how every repository setting behind this is
+configured.
 
 ## Environment variables
 

@@ -1,28 +1,19 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0
-Rationale: plan.md introduces "Specter" as the long-term product (a phased, multi-year
-  roadmap from the existing Phase 0 CRUD app to a full AI-assisted threat modeling platform:
-  TypeScript monorepo, zod schemas, Kysely, pg-boss, React/React Flow, a provider-agnostic LLM
-  layer, RBAC/SSO, audit logging). This is new guidance material (a new principle, expanded
-  guidance in four existing principles, and forward-looking Threat Model / Workflow content)
-  with no backward-incompatible removal of any existing rule — MINOR bump.
+Version change: 1.1.0 → 1.2.0
+Rationale: Phase 1 / Milestone 2 (specs/002-ci-pipeline) lands the CI pipeline that Principle II
+  and the Quality Gates section previously described as pending ("once Phase 1's CI lands"). This
+  is a MINOR bump: it materially expands existing guidance (rewording two sections from
+  future-tense to present-tense, with concrete tool names and thresholds) and adds new Threat
+  Model content for a trust boundary that now exists (the CI/CD supply chain), with no
+  backward-incompatible removal of any existing rule.
 Modified principles:
-  - I. Secure Coding by Default (NON-NEGOTIABLE) — generalized from Express/`src/`-specific
-    wording to cover the target monorepo and typed query builder, plus LLM provider credentials
-    as a secret class (Phase 3+)
-  - II. Test-First Development — added CI gate detail (typecheck/lint/test/Docker build,
-    Dependabot, CodeQL from Phase 1) and the Phase 3+ AI eval-harness gate
-  - III. Code Quality & Simplicity — added strict-TypeScript requirement from Phase 1 onward
-    and phase-scoped YAGNI (don't build a later phase's abstraction early)
-  - IV. Maintainability & Observability — added the plan.md "cloud-friendly" rules (storage
-    abstraction, stateless horizontal scaling) and "transparent knowledge" (threat-library
-    rules/prompts as versioned data files, not hidden in code)
-Added principles:
-  - VI. AI Output Is a Draft With Provenance, Never Silent — encodes plan.md's AI trust model
-    (human-in-the-loop acceptance, schema-validated structured output only, untrusted-document
-    handling, provider-agnostic LLM interface, private-by-default disclosure)
+  - II. Test-First Development — "Once Phase 1's CI lands, every PR MUST pass..." reworded to
+    present tense: the four required checks (typecheck, lint, test against a real Postgres
+    service container, Docker build) are enforced by a branch ruleset with no bypass actors;
+    CodeQL (security-and-quality) and Dependabot are enabled and informational/non-blocking in
+    this milestone
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
@@ -65,9 +56,12 @@ defect. The test suite (`npm test` today; `pnpm test` / Vitest, plus Playwright 
 flows, from Phase 1's monorepo scaffold onward per plan.md) MUST pass before a change is
 considered complete. A change that cannot be tested without a live Postgres instance MUST
 isolate the untestable part (e.g. via an injectable client, as `config.load()` already does)
-rather than being left untested. Once Phase 1's CI lands, every PR MUST pass typecheck, lint,
-test (against a real Postgres service container), and Docker build; Dependabot and CodeQL MUST
-stay enabled. Once any LLM-backed feature exists (Phase 3+), a change to a prompt, provider
+rather than being left untested. Every PR MUST pass typecheck, lint, test (against a real
+Postgres service container), and Docker build — these are enforced by a branch ruleset on `main`
+with no bypass actors, including for repository admins (`.github/rulesets/main.json`; see
+`docs/ci.md`); Dependabot and CodeQL (query suite `security-and-quality`) MUST stay enabled and
+remain informational/non-blocking in this milestone. Once any LLM-backed feature exists (Phase
+3+), a change to a prompt, provider
 adapter, or extraction/threat-generation pipeline MUST pass the eval harness (`pnpm eval`)
 against its committed thresholds (starting point per plan.md: ≥70% threat recall, 100%
 schema-valid output after retries, 100% valid citations) before merge. Tests assert observable
@@ -159,7 +153,9 @@ called out inline below; they are not yet implemented and MUST NOT be treated as
 they ship.
 
 **Assets (current)**: threat entry records; user credentials (`users.password_hash`); the JWT
-signing secret; database credentials; issued JWTs (bearer tokens) held by clients.
+signing secret; database credentials; issued JWTs (bearer tokens) held by clients; the CI/CD
+pipeline's own integrity — the `GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and
+service container images it pulls (Phase 1 Milestone 2, `specs/002-ci-pipeline/`).
 **Assets (planned, not yet implemented)**: from Phase 3 — uploaded design documents, extracted
 text chunks and embeddings, LLM provider API keys, and the LLM outputs derived from them; from
 Phase 4 — read-only repository/IaC access tokens and cloned source code; from Phase 5 —
@@ -168,7 +164,10 @@ webhook targets.
 
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`src/app.js`) → PostgreSQL (`src/db.js`); browser → static assets (`public/`) → JSON API. The
-app itself has a single trust tier: any holder of a valid JWT is fully trusted.
+app itself has a single trust tier: any holder of a valid JWT is fully trusted. Since Phase 1
+Milestone 2, a CI/CD boundary also exists: GitHub Actions workflows — including on pull requests
+from forks — run against this repository's contents with a scoped, read-by-default
+`GITHUB_TOKEN`, and pull third-party actions and container images from outside the repository.
 **Trust boundaries (planned)**: Phase 3 adds an outbound boundary from the worker process to a
 third-party LLM provider (or a local model, which stays inside the trust boundary) and an inbound
 boundary for untrusted document content flowing into prompts (prompt-injection surface — see
@@ -188,7 +187,17 @@ webhooks.
   (`src/app.js`). No CSRF exposure: auth is bearer-token-based, not cookie-based, so no
   same-origin form can ride a session. *Planned*: from Phase 3, AI-proposed edits are a new
   tampering-like surface if they could reach the model without review; mitigated by Principle
-  VI's mandatory human-accept step.
+  VI's mandatory human-accept step. *Mitigated (Phase 1 Milestone 2)*: every third-party GitHub
+  Actions step is pinned to a full commit SHA, not a movable tag; the Docker base image and the
+  CI database's service-container image are pinned by digest; Dependabot's npm updates carry a
+  2-day cooldown on top of pnpm's own `minimumReleaseAge`; and a required `lint`-check step fails
+  the build if `pnpm-lock.yaml` ever reverts to the multi-document format described below.
+  *Accepted risk*: `pnpm-workspace.yaml` sets `pmOnFail: ignore` so the lockfile stays a single
+  YAML document — required because GitHub's dependency graph misreads pnpm's two-document format
+  as zero dependencies, silently disabling Dependabot alerts
+  ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904)). The cost
+  is that pnpm no longer verifies the running pnpm version against `packageManager` itself;
+  Corepack and CI's own pinned install compensate. Revert once #15904 ships.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat entry or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app
@@ -201,6 +210,11 @@ webhooks.
   security headers explicitly; from Phase 3, a hosted (non-local) LLM provider is itself a
   disclosure path for any data included in a prompt — Principle VI requires the UI to disclose
   this, and a fully local model MUST remain available for installs that cannot accept it.
+  *Mitigated (Phase 1 Milestone 2)*: no CI job references a repository secret; the `test` job's
+  credentials are throwaway, non-secret development defaults defined directly in the workflow, so
+  pull requests from forks get identical, fully-functional results with nothing to leak. Every
+  job triggers on `pull_request`, never `pull_request_target`, and every checkout sets
+  `persist-credentials: false`.
 - **Denial of Service**: JSON payloads are capped at 100kb; `GET /api/threats` has no
   pagination (low risk at current expected scale). *Open risk*: no rate limiting on any route,
   including login. *Planned*: Phase 6 adds rate limiting explicitly; from Phase 3, LLM calls
@@ -212,7 +226,11 @@ webhooks.
   seeded and the app is unusable (fails closed, not open). *Planned*: plan.md Phase 6 introduces
   RBAC (viewer/contributor/reviewer/admin) and OIDC/SAML SSO to close this gap; until Phase 6
   ships, any change that widens what a plain authenticated user can do MUST be justified per
-  Principle V, not treated as free because "there's no RBAC yet anyway."
+  Principle V, not treated as free because "there's no RBAC yet anyway." *Mitigated (Phase 1
+  Milestone 2)*: the repository's default `GITHUB_TOKEN` permission is read-only
+  (`contents: read`); only the CodeQL job is granted the additional `security-events: write` it
+  needs, and only for itself. The merge-gate ruleset on `main` has no bypass actors — no one,
+  including repository admins, can merge or push around a failing or missing required check.
 
 Any change that adds an endpoint, a new external integration, or a new credential type MUST add
 or update a bullet above in the same PR, whether or not the surrounding phase has been reached.
@@ -220,9 +238,10 @@ or update a bullet above in the same PR, whether or not the surrounding phase ha
 ## Development Workflow & Quality Gates
 
 Every pull request MUST state, or make evident from the diff, how it satisfies Principles I–VI.
-The active test suite MUST pass before a PR is merged (`npm test` today; the Phase 1 CI pipeline
-— typecheck, lint, test with a Postgres service container, Docker build — plus Dependabot and
-CodeQL, once it lands). A PR that touches authentication, configuration/secrets handling, any
+The active test suite MUST pass before a PR is merged: typecheck, lint, test (with a Postgres
+service container), and Docker build are enforced as required checks on every PR to `main`, with
+Dependabot and CodeQL enabled alongside them (informational, not merge-blocking, in this
+milestone). A PR that touches authentication, configuration/secrets handling, any
 route's authorization/validation logic, or (from Phase 3) prompt construction, LLM provider
 adapters, or document-ingestion code MUST call out the security implication explicitly in its
 description and MUST update the Threat Model section if it changes an entry point, asset, or
@@ -251,4 +270,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-27
+**Version**: 1.2.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-28
