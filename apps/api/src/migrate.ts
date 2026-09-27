@@ -1,13 +1,16 @@
-const fs = require('fs');
-const path = require('path');
-const pool = require('./db');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import db from './db.js';
+import config from './config.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'db');
 // Arbitrary constant so concurrent instances starting together run migrations one at a time.
 const LOCK_ID = 727274;
 
-async function migrate() {
-  const client = await pool.connect();
+export default async function migrate(): Promise<void> {
+  const client = await db.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_ID]);
     await client.query(`
@@ -16,10 +19,13 @@ async function migrate() {
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
 
-    const { rows } = await client.query('SELECT name FROM schema_migrations');
+    const { rows } = await client.query<{ name: string }>('SELECT name FROM schema_migrations');
     const applied = new Set(rows.map((r) => r.name));
 
-    const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+    const files = fs
+      .readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
     for (const file of files) {
       if (applied.has(file)) continue;
       const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
@@ -40,15 +46,17 @@ async function migrate() {
   }
 }
 
-module.exports = migrate;
-
-if (require.main === module) {
-  require('./config')
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMainModule) {
+  config
     .load()
     .then(migrate)
-    .then(() => pool.end())
-    .catch((err) => {
-      console.error('Migration failed:', err);
+    .then(() => db.end())
+    .catch(() => {
+      // No error detail logged here on purpose: config.load() and migrate() failures
+      // may carry driver-attached data derived from env-sourced config (connection
+      // string, query text) on any property of the caught value.
+      console.error('Migration failed');
       process.exit(1);
     });
 }

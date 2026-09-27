@@ -19,8 +19,9 @@ trust boundary.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x in strict mode, targeting Node.js ≥ 20 (matches the
-existing `package.json` `engines` field and the `node:22-alpine` base image already in use).
+**Language/Version**: TypeScript ~6.0.x in strict mode (pinned below the `typescript@7` line
+for `@typescript-eslint` compatibility — see research.md #1), targeting Node.js ≥ 20 (matches
+the existing `package.json` `engines` field and the `node:22-alpine` base image already in use).
 
 **Primary Dependencies**: Runtime deps carried over unchanged (`express`, `pg`, `bcryptjs`,
 `jsonwebtoken`, `@aws-sdk/client-secrets-manager`), plus their type packages where the library

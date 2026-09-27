@@ -1,8 +1,12 @@
 node_modules
 .env
+.env.test
 .git
 *.log
 plan.md
 README.md
 docker-compose.yml
 Dockerfile
+dist
+coverage
+apps/api/test

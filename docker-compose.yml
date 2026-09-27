@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: threats
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword}
+    ports:
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
