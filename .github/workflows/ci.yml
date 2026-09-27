@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm lint
+      - name: Guard the lockfile format
+        run: |
+          if grep -q '^---' pnpm-lock.yaml; then
+            echo "::error file=pnpm-lock.yaml::pnpm-lock.yaml must be a single YAML document (see docs/ci.md#lockfile-format); a multi-document lockfile disables Dependabot alerts (dependabot-core#15904)"
+            exit 1
+          fi
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+        env:
+          POSTGRES_DB: threats
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: devpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d threats"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # Throwaway, non-secret development defaults (research.md #1). .env.test is gitignored, so
+      # CI supplies these directly instead.
+      DB_HOST: localhost
+      DB_PORT: '5432'
+      DB_NAME: threats
+      DB_USER: postgres
+      DB_PASSWORD: devpassword
+      JWT_SECRET: ci-only-not-a-secret
+      JWT_EXPIRES_IN: 8h
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - run: pnpm test
+
+  docker-build:
+    name: docker-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build --pull -t specter:ci .
