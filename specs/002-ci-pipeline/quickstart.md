@@ -111,3 +111,29 @@ gh api repos/shivamsaraswat/specter/code-scanning/default-setup --jq .state
 
 Scenarios 1–8 all match their expected results, and CI is green on `main`. That completes the
 "CI is green" part of `plan.md`'s Phase 1 Definition of Done.
+
+## Validation log (2026-09-28)
+
+The pipeline was implemented and merged to `main` (PR #3, merge commit `2d38fb9`) via two real
+push cycles rather than the local-parity dry run in §1, which naturally exercised several of
+these scenarios. The deliberate canary/fork/rerun scenarios below were **deferred** at the
+maintainer's request (no second GitHub account available for §3, and to avoid the Actions-minute
+cost of §8's 20 reruns right now).
+
+| § | Scenario | Status | Evidence |
+|---|---|---|---|
+| 1 | Local parity | ✅ Confirmed | Fresh-volume run: install, typecheck, lint, 21/21 tests, `docker build --pull` all passed; 0 lockfile separators. |
+| 2 | Clean PR | ✅ Confirmed (organically) | PR #3's two pushes each got `typecheck`/`lint`/`test`/`docker-build` as separate named checks, all `success`, within ~1 minute each (well under the 10-minute SC-003 budget). |
+| 2 | Four canary PRs | ⏸ Deferred | Not run. SC-002's per-canary failure matrix has not been deliberately exercised. |
+| 2 | Superseded-run cancellation | ✅ Confirmed (organically) | Two commits were pushed to PR #3 across the session; no stale run outcome was seen, consistent with the `cancel-in-progress` behavior, though this wasn't a deliberate rapid-fire test. |
+| 3 | Fork PR | ⏸ **Deferred — see spec SC-005.** No second GitHub account or collaborator is available. |
+| 4 | Lockfile guard | ⏸ Deferred | Not run. |
+| — | FR-015 log check | ⏸ Deferred | Not run (bundled with T020). |
+| 5 | CodeQL finding (canary) | ⏸ Deferred | Not run. CodeQL itself is confirmed running: both the PR run and the `main` push run completed `success` (no deliberately-unsafe pattern has been used to confirm a finding actually surfaces). |
+| 6 | Dependency graph / Dependabot | ✅ Mostly confirmed | Filtered SBOM: **319** npm packages vs **311** `pnpm-lock.yaml` entries (within 10%) — this alone confirms the dependency-graph fix, since before it this query returned zero. Dependabot's first update-check runs for all three ecosystems (npm, docker, github-actions) completed `success` immediately after the merge. **Not yet observed**: an actual Dependabot version-update PR running the four required checks — needs the one-week window or the next natural update cycle. |
+| 7 | Audit job | ✅ Confirmed | Manually dispatched run [36342266835](https://github.com/shivamsaraswat/specter/actions/runs/36342266835): completed `success`; "Full report" step printed "No known vulnerabilities found"; the high/critical gate step also reported clean. |
+| 8 | Settings sanity | ⏸ Deferred | Not run. |
+| SC-004 | 20× rerun, same commit | ⏸ Deferred | Not run — uses Actions minutes; needs separate maintainer approval per its own task note. |
+
+**To resume**: re-run `/speckit-implement`, or manually work through tasks.md's T020, T024, T029
+(step 3 only) and T034.

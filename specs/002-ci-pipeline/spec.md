@@ -324,7 +324,12 @@ dependency type, and that each proposal pull request runs the full set of US1 ch
   result all 20 times. No flakiness comes from database startup timing. A smaller sample does not
   satisfy this criterion.
 - **SC-005**: A pull request from a fork gets complete check results, and zero repository secrets
-  are exposed to it.
+  are exposed to it. **Status: deferred (2026-09-28)** — verifying this needs a pull request from
+  a second GitHub account or a collaborator, since GitHub does not allow forking a repository into
+  its own owner's account, and no second account is available. The design still satisfies this by
+  construction (FR-012: no job reads a repository secret, so a fork PR cannot receive one it
+  wasn't already denied), but it has not been observed empirically. Revisit when a second account
+  or collaborator becomes available.
 - **SC-006**: A deliberately unsafe code pattern in a test pull request produces a security finding
   that the maintainer can see on that pull request before deciding whether to merge it.
 - **SC-007**: Within one week of merging, the repository shows dependency-update proposals, or an
