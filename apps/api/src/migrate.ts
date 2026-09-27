@@ -53,7 +53,10 @@ if (isMainModule) {
     .then(migrate)
     .then(() => db.end())
     .catch((err: unknown) => {
-      console.error('Migration failed:', err);
+      // Log only the message, not the raw error object — it can carry driver-attached
+      // fields (query text, connection detail) derived from env-sourced config.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('Migration failed:', message);
       process.exit(1);
     });
 }

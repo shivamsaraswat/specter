@@ -40,6 +40,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error('Startup failed:', err);
+  // Log only the message, not the raw error object — it can carry driver-attached
+  // fields (query text, connection detail) derived from env-sourced config.
+  const message = err instanceof Error ? err.message : String(err);
+  console.error('Startup failed:', message);
   process.exit(1);
 });
