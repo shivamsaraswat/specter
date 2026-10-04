@@ -47,6 +47,8 @@ The app does not read `.env` itself — export the variables (e.g. `set -a; sour
 
 On startup the app applies any pending SQL files from `packages/db/migrations/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `pnpm --filter @specter/api migrate` runs only the migrations. `pnpm run test` runs the whole workspace's test suite.
 
+On the first start after upgrading from the original tracker, the existing threat entries are copied once into a project named "Imported", in a threat model named "Legacy threats". The original entries are left untouched until v0.1. A fresh install has nothing to copy, so it gets no "Imported" project.
+
 If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
 
 | Old (npm, single package) | New (pnpm workspace) |
