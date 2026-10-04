@@ -41,7 +41,15 @@ export async function expectPgError(promise: Promise<unknown>, expected: PgError
   if (expected.column !== undefined) expect(err.column).toBe(expected.column);
 }
 
-const COUNTABLE_TABLES = ['users', 'projects', 'threat_models', 'elements', 'threats', 'mitigations'] as const;
+const COUNTABLE_TABLES = [
+  'users',
+  'projects',
+  'threat_models',
+  'elements',
+  'threats',
+  'mitigations',
+  'legacy_threat_links',
+] as const;
 type CountableTable = (typeof COUNTABLE_TABLES)[number];
 
 export { escapeIdentifier };

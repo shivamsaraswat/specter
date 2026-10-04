@@ -1,34 +1,30 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.2.0 → 1.3.0
-Rationale: Phase 1 / Milestone 3 (specs/003-domain-schema) adds the threat-model domain schema:
-  projects, threat models, elements, threats and mitigations. Principle V requires the Threat
-  Model to be updated in the same change when a feature adds an asset, so this records those
-  records as a new asset and the database-level integrity rules as a Tampering mitigation. This is
-  a MINOR bump: it adds a current asset and materially expands an existing mitigation, with no
-  backward-incompatible removal of any rule.
-Modified principles:
-  - I. Secure Coding by Default — "Kysely once Phase 1's monorepo lands" corrected to Phase 1
-    Milestone 5, the first milestone with application queries against the domain tables. The rule
-    itself is unchanged: parameterized `pg` still satisfies it.
-  - I. Secure Coding by Default — also clarified for SQL identifiers, which cannot be parameters:
-    allowed only from a constant or fixed allow-list, and always through the driver's identifier
-    escaping (`pg.escapeIdentifier`); never from request input. Values stay parameters-only. Found
-    when the schema tests needed dynamic table and database names.
-  - IV. Maintainability & Observability — the same Kysely timing correction.
+Version change: 1.3.0 → 1.4.0
+Rationale: Phase 1 / Milestone 4 (specs/004-legacy-data-migration) copies the legacy threat entries
+  into the threat-model domain, once, and adds a table that links each imported threat to the legacy
+  entry it came from. Principle V requires the Threat Model to be updated in the same change when a
+  feature adds an asset, so this records the link as part of the threat-model records asset and the
+  rule that protects it as a Tampering mitigation. This is a MINOR bump, following 1.3.0's own
+  precedent: it adds a current asset entry and a newly enforced mitigation, with no
+  backward-incompatible removal of any rule. It is not a PATCH, which Governance reserves for
+  wording or clarity fixes with no rule change.
+Modified principles: none
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Assets (current): threat-model records (projects, threat models, elements, threats,
-    mitigations). Not reachable over the network until Milestone 5.
-  - Tampering: new "Mitigated (Phase 1 Milestone 3)" note: storage itself enforces the integrity
-    of those records, so no future writer can store a structurally inconsistent model, and a
-    threat's `origin` cannot be rewritten after creation.
+  - Assets (current): threat-model records now include the legacy links from imported threats to
+    their original entries. Still not reachable over the network until Milestone 5.
+  - Tampering: new "Mitigated (Phase 1 Milestone 4)" note: a legacy link can only be inserted, or
+    removed together with its threat, so the evidence Milestone 5 needs to reconcile deleted legacy
+    entries cannot be erased silently.
+  - Repudiation: clarified, with no change to the risk. The "Imported" project's creator records
+    ownership of the container, not authorship; the original tracker never stored who wrote an entry.
 Deferred / TODO items: none
-Templates requiring follow-up: none checked in this run (scope of this command is the
-  constitution file only; dependent templates read it at runtime per the scope guard)
+Templates requiring follow-up: none checked in this run (scope of this change is the constitution
+  file only; dependent templates read it at runtime per the scope guard)
 -->
 
 # Specter Constitution
@@ -171,8 +167,9 @@ signing secret; database credentials; issued JWTs (bearer tokens) held by client
 pipeline's own integrity — the `GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and
 service container images it pulls (Phase 1 Milestone 2, `specs/002-ci-pipeline/`); threat-model
 records — projects, threat models, elements, threats and mitigations (Phase 1 Milestone 3,
-`specs/003-domain-schema/`), stored in the database but not reachable over the network until
-Phase 1 Milestone 5's API.
+`specs/003-domain-schema/`) and the legacy links from imported threats to their original entries
+(Phase 1 Milestone 4, `specs/004-legacy-data-migration/`), stored in the database but not
+reachable over the network until Phase 1 Milestone 5's API.
 **Assets (planned, not yet implemented)**: from Phase 3 — uploaded design documents, extracted
 text chunks and embeddings, LLM provider API keys, and the LLM outputs derived from them; from
 Phase 4 — read-only repository/IaC access tokens and cloned source code; from Phase 5 —
@@ -221,12 +218,18 @@ webhooks.
   types, trust boundaries stay acyclic, an element with threats cannot be deleted from under
   them, `risk` is derived and cannot be set, and `origin` has no default and cannot change after
   creation, so a rule- or AI-generated threat can neither be stored labelled as manual nor be
-  relabelled later.
+  relabelled later. *Mitigated (Phase 1 Milestone 4)*: a legacy link — the record tying an imported
+  threat to the legacy entry it was copied from — can only be inserted, or removed together with
+  its threat. Storage rejects any change to a link and any direct delete, so the evidence Milestone
+  5 needs to reconcile deleted legacy entries cannot be erased silently.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat entry or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app
   itself is meant to help track. *Planned*: plan.md Phase 6 closes this gap with a persisted
   audit log of who changed what; until Phase 6 ships, this remains an accepted, tracked risk.
+  *Clarified (Phase 1 Milestone 4)*: the "Imported" project's creator records who owns that
+  container (the earliest account), not who wrote each imported entry; the original tracker never
+  stored authorship, so the import cannot recover it and the risk is unchanged.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
   server-side only (`src/app.js` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
@@ -294,4 +297,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04
+**Version**: 1.4.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04
