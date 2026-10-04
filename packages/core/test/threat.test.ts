@@ -112,7 +112,7 @@ describe('ThreatRecord', () => {
     expect(ThreatRecord.parse(row)).toEqual(row);
   });
 
-  it('accepts a 90,000-character title and description, as a migrated legacy threat can have (FR-031)', () => {
+  it('accepts a 90,000-character title and description in a stored record: the record sets no maximum (M3 FR-031)', () => {
     const long = ThreatRecord.parse({ ...row, title: 'T'.repeat(90_000), description: 'D'.repeat(90_000) });
     expect(long.title).toHaveLength(90_000);
   });

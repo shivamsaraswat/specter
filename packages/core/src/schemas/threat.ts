@@ -38,7 +38,8 @@ export type ThreatCreateInput = z.infer<typeof ThreatCreateInput>;
 export const ThreatUpdateInput = ThreatInputBase.omit({ threat_model_id: true, origin: true }).partial();
 export type ThreatUpdateInput = z.infer<typeof ThreatUpdateInput>;
 
-// No maximum on title or description: threats migrated from legacy entries can be ~100 KB (FR-031).
+// No maximum on title or description: a record describes what is stored, and storage sets none
+// (M3 FR-031). The input schemas above are what cap them.
 export const ThreatRecord = z.strictObject({
   id: uuid,
   threat_model_id: uuid,

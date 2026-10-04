@@ -4,7 +4,7 @@ An open-source, self-hosted threat modeling platform, in early development.
 
 The goal: give Specter the context of a project (design docs, a repository, Jira/Confluence) and get a threat model back, or build one by hand on a data-flow diagram. Both paths produce the same threat model, AI suggestions are always drafts with citations that a human accepts or rejects, and you bring your own LLM, including a fully local one, so nothing has to leave your network.
 
-> **Current status: Phase 0.** Today Specter is a small CRUD app for tracking STRIDE threat entries (Node.js + Express, PostgreSQL, a single static HTML page), already deployable to AWS. Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
+> **Current status: Phase 1, in progress.** Today Specter is an API for STRIDE threat models: projects, threat models, diagram elements, threats and mitigations (Node.js + Express, PostgreSQL), already deployable to AWS. There is no browser UI until the React app lands (Phase 1 Milestone 6). Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
 
 ## Roadmap
 
@@ -13,7 +13,7 @@ Built one phase at a time; each phase ends with something usable.
 | Phase | Goal | Release |
 | --- | --- | --- |
 | 0 ✅ | CRUD tracker for STRIDE threats, deployed to AWS | — |
-| 1 | Re-platform to a TypeScript monorepo (React, Express, Postgres) with a real domain model: projects, threat models, diagram elements, threats, mitigations. Existing data is migrated | — |
+| 1 | Re-platform to a TypeScript monorepo (React, Express, Postgres) with a real domain model: projects, threat models, diagram elements, threats, mitigations. Phase 0's learning data is dropped, not migrated | — |
 | 2 | Manual threat modeling: data-flow-diagram editor with trust boundaries, rule-based STRIDE-per-element threat generation, threat lifecycle and risk scoring, reports, OTM and Threat Dragon import/export | v0.1 |
 | 3 | AI threat models from uploaded docs or pasted text, with citations and human review. Bring your own LLM: Anthropic, OpenAI, Bedrock/Azure, or local models via Ollama/vLLM | v0.2 |
 | 4 | Threat models from code repositories and IaC (Terraform, Kubernetes, compose), with drift detection as the code changes | v0.3 |
@@ -27,7 +27,7 @@ Built one phase at a time; each phase ends with something usable.
 docker compose up --build
 ```
 
-Open <http://localhost:3000> and log in with `admin` / `admin` (the compose defaults). Add, view, and delete threat entries. `GET /health` returns `200 {"status":"ok"}`.
+There is no browser UI yet, so use the API. `GET /health` returns `200 {"status":"ok"}`, and [API.md](API.md) walks through logging in with `admin` / `admin` (the compose defaults) and building a threat model with curl.
 
 Override the defaults by exporting variables before `docker compose up` (or putting them in a `.env` file next to `docker-compose.yml`): `DB_PASSWORD`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT`.
 
@@ -35,7 +35,7 @@ Data lives in the `pgdata` volume. `docker compose down -v` wipes it.
 
 ## Run without Docker
 
-Requires Node 20+, pnpm, and a reachable PostgreSQL **13 or newer** (CI and `docker compose` use 16).
+Requires Node 22+, pnpm, and a reachable PostgreSQL **13 or newer** (CI and `docker compose` use 16).
 
 ```sh
 pnpm install
@@ -47,7 +47,7 @@ The app does not read `.env` itself — export the variables (e.g. `set -a; sour
 
 On startup the app applies any pending SQL files from `packages/db/migrations/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `pnpm --filter @specter/api migrate` runs only the migrations. `pnpm run test` runs the whole workspace's test suite.
 
-On the first start after upgrading from the original tracker, the existing threat entries are copied once into a project named "Imported", in a threat model named "Legacy threats". The original entries are left untouched until v0.1. A fresh install has nothing to copy, so it gets no "Imported" project.
+The original threat tracker was removed in Phase 1 Milestone 5. On the first start after upgrading, a migration drops its entries (the `threat_entries` table) and the `legacy_threat_links` table, and deletes the "Imported" project that an earlier version created from those entries, with everything inside it. Nothing is exported first: those entries were throwaway data. User accounts, and any project that did not come from that import, are untouched.
 
 If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
 
@@ -71,7 +71,7 @@ This is a pnpm workspace. The packages are:
 Workspace packages are read as TypeScript source by the type checker, the linter, the tests and
 `tsx`, and as compiled JavaScript inside the Docker image. Running this takes no extra build step.
 
-Requires Node.js 20+. Running with an unsupported Node version fails fast with a
+Requires Node.js 22+. Running with an unsupported Node version fails fast with a
 clear engine-mismatch error before anything else runs.
 
 ```sh
@@ -118,7 +118,7 @@ configured.
 | `ADMIN_USERNAME` | no | — | Login user, created/updated on startup |
 | `ADMIN_PASSWORD` | no | — | Password for that user (re-applied on every startup) |
 
-If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can log in. Once logged in, any user can create more users (UI form or `POST /api/users`). There are no roles, and no user edit or delete.
+If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can log in. Once logged in, any user can create more users (`POST /api/users`). There are no roles: any logged-in user can also read, change and delete every project and everything in it. There is no user edit or delete.
 
 ## API
 
@@ -126,15 +126,13 @@ If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can
 | --- | --- | --- | --- |
 | GET | `/health` | no | Liveness; does not touch the DB |
 | POST | `/api/login` | no | `{username, password}` → `{token}` |
-| GET | `/api/threats` | Bearer | Newest first |
-| POST | `/api/threats` | Bearer | `{title, stride_category, severity, description?}` |
-| PUT | `/api/threats/:id` | Bearer | Any subset of the above fields |
-| DELETE | `/api/threats/:id` | Bearer | 204 on success |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
+| | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list (27 operations) |
+| GET | `/api/v1/openapi.json` | Bearer | The OpenAPI 3.1 document for v1 |
 
-`stride_category`: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege. `severity`: Low, Medium, High.
+The v1 request bodies are validated, ids are UUIDs, and lists come oldest first. The original `/api/threats` endpoints are gone.
 
-Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for curl examples and error codes.
+Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for every operation, the fields, curl examples and error codes, and [`apps/api/openapi.json`](apps/api/openapi.json) for the OpenAPI document.
 
 ## Deployment
 

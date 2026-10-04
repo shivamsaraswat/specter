@@ -49,7 +49,7 @@ async function recordedMigrations(p: pg.Pool): Promise<Array<{ name: string; app
   return rows;
 }
 
-async function snapshot(p: pg.Pool, table: 'threat_entries' | 'users'): Promise<unknown[]> {
+async function snapshot(p: pg.Pool, table: 'users'): Promise<unknown[]> {
   const { rows } = await p.query<{ j: unknown }>(`SELECT to_jsonb(t) AS j FROM ${escapeIdentifier(table)} t ORDER BY id`);
   return rows.map((r) => r.j);
 }
@@ -70,7 +70,6 @@ afterAll(async () => {
 
 describe('upgrading an install from before this milestone (US1, FR-001, FR-003)', () => {
   let upgraded: pg.Pool;
-  let threatsBefore: unknown[];
   let usersBefore: unknown[];
   let legacyAppliedAtBefore: Array<{ name: string; applied_at: Date }>;
   let recordedAfterFirstRun: Array<{ name: string; applied_at: Date }>;
@@ -89,7 +88,6 @@ describe('upgrading an install from before this milestone (US1, FR-001, FR-003)'
       ['T'.repeat(90_000)],
     );
 
-    threatsBefore = await snapshot(upgraded, 'threat_entries');
     usersBefore = await snapshot(upgraded, 'users');
     legacyAppliedAtBefore = (await recordedMigrations(upgraded)).filter((m) => LEGACY_FILES.includes(m.name));
 
@@ -102,11 +100,10 @@ describe('upgrading an install from before this milestone (US1, FR-001, FR-003)'
     expect(present).toEqual(Object.fromEntries(DOMAIN_TABLES.map((t) => [t, t])));
   });
 
-  it('leaves every legacy row unchanged in content and count (scenarios 1 and 2, SC-001)', async () => {
-    expect(await snapshot(upgraded, 'threat_entries')).toEqual(threatsBefore);
+  it('leaves every user account unchanged, and ends with no legacy entry table (scenarios 1 and 2, SC-001; Milestone 5 removes it)', async () => {
     expect(await snapshot(upgraded, 'users')).toEqual(usersBefore);
-    expect(threatsBefore).toHaveLength(4);
     expect(usersBefore).toHaveLength(2);
+    expect(await tablesPresent(upgraded, ['threat_entries'])).toEqual({ threat_entries: null });
   });
 
   it('does not re-apply the legacy migrations and records every later one', () => {
@@ -123,12 +120,15 @@ describe('upgrading an install from before this milestone (US1, FR-001, FR-003)'
 });
 
 describe('a brand-new install (US1, SC-002)', () => {
-  it('gets the legacy and the domain structures in a single run (scenario 3)', async () => {
+  it('gets the users and domain structures, and no legacy table, in a single run (scenario 3)', async () => {
     const empty = await scratchDatabase();
     await migrate(empty);
 
     const present = await tablesPresent(empty, ['threat_entries', 'users', ...DOMAIN_TABLES]);
-    expect(Object.values(present).every((r) => r !== null)).toBe(true);
+    expect(present.threat_entries).toBeNull();
+    expect(Object.entries(present).filter(([table]) => table !== 'threat_entries').every(([, r]) => r !== null)).toBe(
+      true,
+    );
     expect((await recordedMigrations(empty)).map((m) => m.name)).toEqual(migrationFiles);
   });
 });

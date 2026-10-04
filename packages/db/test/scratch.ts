@@ -19,7 +19,7 @@ export interface LegacyEntry {
 
 // Creates an empty database next to the test database and returns a pool connected to it.
 export async function scratchDatabase(): Promise<pg.Pool> {
-  const name = `specter_m4_${uid()}`;
+  const name = `specter_scratch_${uid()}`;
   await pool().query(`CREATE DATABASE ${escapeIdentifier(name)}`);
   scratchNames.push(name);
   const p = new pg.Pool(connectionSettings(name));
@@ -35,10 +35,10 @@ export async function dropScratchDatabases(): Promise<void> {
   }
 }
 
-// Leaves the database exactly as an install from before the legacy import would have it: every
-// migration that sorts before 009 applied and recorded, nothing else. The list is filtered, never
-// hardcoded, so it stays right if an earlier file is ever added.
-export async function installBefore009(p: pg.Pool): Promise<void> {
+// Leaves the database exactly as an install from before `file` would have it: every migration that
+// sorts before it applied and recorded, nothing else. The list is filtered, never hardcoded, so it
+// stays right if an earlier file is ever added. `file` may be a bare prefix such as '009'.
+export async function installBefore(p: pg.Pool, file: string): Promise<void> {
   await p.query(`
     CREATE TABLE schema_migrations (
       name       TEXT PRIMARY KEY,
@@ -46,15 +46,21 @@ export async function installBefore009(p: pg.Pool): Promise<void> {
     )`);
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql') && f < '009')
+    .filter((f) => f.endsWith('.sql') && f < file)
     .sort();
-  for (const file of files) {
-    await p.query(fs.readFileSync(`${MIGRATIONS_DIR}${file}`, 'utf8'));
-    await p.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
-  }
+  for (const name of files) await applyFile(p, name);
 }
 
-export async function snapshot(p: pg.Pool, table: 'threat_entries' | 'users'): Promise<unknown[]> {
+// Runs one migration file and records it, as the runner would.
+export async function applyFile(p: pg.Pool, file: string): Promise<void> {
+  await p.query(fs.readFileSync(`${MIGRATIONS_DIR}${file}`, 'utf8'));
+  await p.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
+}
+
+export async function snapshot(
+  p: pg.Pool,
+  table: 'users' | 'projects' | 'threat_models' | 'threats' | 'mitigations',
+): Promise<unknown[]> {
   const { rows } = await p.query<{ j: unknown }>(
     `SELECT to_jsonb(t) AS j FROM ${escapeIdentifier(table)} t ORDER BY id`,
   );

@@ -21,7 +21,6 @@ WORKDIR /app
 
 COPY --from=builder /prod/api/node_modules ./node_modules
 COPY --from=builder /prod/api/dist ./dist
-COPY --from=builder /prod/api/public ./public
 COPY --from=builder /prod/api/package.json ./package.json
 
 USER node

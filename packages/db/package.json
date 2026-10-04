@@ -21,13 +21,14 @@
     "test": "vitest run"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
+    "@specter/core": "workspace:*",
+    "kysely": "^0.29.6",
     "pg": "^8.23.0"
   },
   "devDependencies": {
-    "@specter/core": "workspace:*",
     "@types/pg": "^8.23.1"
   }
 }

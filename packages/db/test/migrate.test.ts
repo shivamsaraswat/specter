@@ -14,10 +14,10 @@ describe('migration history after relocation', () => {
     expect(rows.map((r) => r.name)).toEqual(['001_threat_entries.sql', '002_users.sql']);
   });
 
-  it('creates the legacy tables', async () => {
+  it('keeps users, and has removed the legacy entry table (Milestone 5)', async () => {
     const { rows } = await pool().query<{ t: string | null; u: string | null }>(
       `SELECT to_regclass('threat_entries')::text AS t, to_regclass('users')::text AS u`,
     );
-    expect(rows[0]).toEqual({ t: 'threat_entries', u: 'users' });
+    expect(rows[0]).toEqual({ t: null, u: 'users' });
   });
 });
