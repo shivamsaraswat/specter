@@ -36,6 +36,9 @@
 - Q: Should elements and mitigations also record when they were created and last changed, and
   should projects record when they were last changed? → A: Yes. All five entities record creation
   and last-change times, both maintained automatically. This goes beyond `plan.md`'s field list.
+- Q: Should a threat's origin be changeable after the threat is created? → A: No. It is immutable
+  in storage and is not part of the update input, so provenance cannot be rewritten (an AI threat
+  cannot be relabelled manual). Decided after implementation review; see FR-025.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -290,7 +293,9 @@ storage derives.
   and MUST default to `open`.
 - **FR-025**: Origin MUST be one of `manual`, `rule` or `ai`, and MUST be supplied explicitly on
   every new threat, with no default. A default would let rule- or AI-generated threats be stored
-  silently labelled as human-authored, which the constitution (Principle VI) forbids.
+  silently labelled as human-authored, which the constitution (Principle VI) forbids. Origin MUST
+  NOT change after the threat is created, so provenance can never be rewritten: a rule- or
+  AI-generated threat cannot later be relabelled as manual.
 
 **Mitigations**
 

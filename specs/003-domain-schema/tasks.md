@@ -952,3 +952,31 @@ Task: "T052 packages/db/test/agreement.test.ts"
   table-name allow-list in `count()`, is built as literal text (constitution Principle I).
 - Commit after each green checkpoint (T015, T024, T039, T052, T056) **on `feat/phase-1`**, only
   when the maintainer asks.
+
+---
+
+## Phase 7: Convergence
+
+**Purpose**: Gaps found by `/speckit-converge` after `/speckit-implement`. Appended only; the
+tasks above are untouched. Do these in order (T062 first), then run `pnpm typecheck && pnpm lint &&
+pnpm test`.
+
+- [X] T062 **CRITICAL** Stop interpolating SQL identifiers into query text in the test code, per Constitution I and the "Every SQL in tests and helpers is parameterized" note under Notes (contradicts). The 12 sites: `packages/db/test/helpers.ts` (`count()` table and column, `insert()` table and columns), `timestamps.test.ts` (`${table}` in the two `UPDATE`s and the `SELECT`, `${touch}`), `global-setup.ts` (`DROP/CREATE DATABASE ${TEST_DB}`), `upgrade.test.ts` (`CREATE/DROP DATABASE ${name}`, `FROM ${table}`) and `elements.test.ts` (`setColumn`'s `${column}`).
+  - Wrap every identifier in `pg.escapeIdentifier(...)`, which `pg` exports (verified: it exists in the installed version and doubles embedded quotes).
+  - Where the set of names is fixed, also restrict it: keep `count()`'s allow-list of tables, give `insert()` an allow-list of the six tables it is called with, and type `setColumn`'s column as a literal union.
+  - The `touch` expressions in `timestamps.test.ts` are fixed SQL fragments, not identifiers. Replace them with a per-table `{ column, value }` pair, so that `UPDATE` can be built from an escaped column and a `$1` parameter.
+  - Afterwards, a search for `\${` inside query strings under `packages/*/test` and `packages/db/src` must show only `escapeIdentifier(...)` calls, and the whole suite must still pass.
+- [X] T063 [P] Export the five input-base schemas and their inferred types from `packages/core`, as `contracts/core-api.md` § Schemas promises (`ProjectInputBase`, `ThreatModelInputBase`, `ElementInputBase`, `ThreatInputBase`, `MitigationInputBase`), per `contracts/core-api.md` (partial). Export each `InputBase` from its file in `packages/core/src/schemas/`; `packages/core/src/index.ts` already re-exports those files with `export *`. In each entity's test file under `packages/core/test/`, add a case asserting the base is exported, rejects unknown keys, and applies **no** defaults: parsing an input without an optional-with-default field must fail instead of filling it in.
+- [X] T064 [P] Add a concurrent-startup test per spec Edge Case "Concurrent startup", FR-001 and FR-004 (partial). In `packages/db/test/upgrade.test.ts`, on an empty scratch database, run `await Promise.all([migrate(db), migrate(db)])`, spying on `console.log`. Assert that both resolve, that `schema_migrations` has exactly one row per file in `packages/db/migrations/`, that all seven tables exist, and that the spy saw exactly one `Applied migration <file>` line per file, never two. The advisory lock in `packages/db/src/migrate.ts` already provides this; the test proves it.
+- [X] T065 [P] Document the other thing `formatValidationError` guarantees in `contracts/core-api.md` § Validation error message, per the same section (unrequested). Each path segment and key name is stripped of control characters (replaced by a space) and capped at 64 characters, so a hostile key can't break the single-line message or bloat it. `packages/core/test/errors.test.ts` already covers it ("keeps a hostile key name on one line and bounded").
+- [X] T066 [P] Document the test databases in `README.md` § Development and `docs/ci.md`, per `research.md` #14 (partial). `pnpm test` drops and recreates a database called `specter_db_test`, and creates and drops short-lived `specter_upgrade_*` databases, on the server `DB_HOST` points to. That needs a role that can create databases (the postgres user in `docker-compose.yml` and in CI's service container can), so it should never be pointed at a server holding anything that matters. Say that `apps/api`'s own tests still use `DB_NAME` and insert rows there on every run.
+
+---
+
+## Phase 8: Decisions after review
+
+**Purpose**: Two open questions from the implementation report, decided by the maintainer on
+2026-10-04. Recorded here so the task list stays the full record of what was built.
+
+- [X] T067 Make a threat's `origin` immutable, decided after review per Constitution VI and FR-025. In `packages/db/migrations/007_threats.sql`, `threats_check()` rejects a changed `origin` with `check_violation` and `CONSTRAINT = 'threats_origin_immutable'`. `ThreatUpdateInput` in `packages/core/src/schemas/threat.ts` omits `origin`. Tests: `packages/db/test/threats.test.ts` ("never lets origin change afterwards") and `packages/core/test/threat.test.ts` ("does not accept origin"). Docs synced: spec FR-025 and Clarifications, `data-model.md`, `contracts/db-errors.md`, `contracts/core-api.md`, `research.md` #7.
+- [X] T068 Clarify Principle I for SQL identifiers in `.specify/memory/constitution.md`: values are always parameters; an identifier may be built into SQL only from a constant or fixed allow-list and always through the driver's identifier escaping, never from request input. Folded into the unmerged v1.3.0 and its Sync Impact Report, so there is no extra version bump. The Tampering note now also says `origin` cannot change.

@@ -11,7 +11,7 @@ import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, optionalText, requiredText, ti
 
 // risk is derived by storage and never accepted as input. origin has no default on purpose: whoever
 // creates a threat must say whether it is manual, rule-generated or AI-generated (FR-025).
-const InputBase = z.strictObject({
+export const ThreatInputBase = z.strictObject({
   threat_model_id: uuid,
   element_id: uuid.nullable(),
   category: z.enum(STRIDE_CATEGORIES),
@@ -24,15 +24,18 @@ const InputBase = z.strictObject({
   library_ref: requiredText(NAME_MAX_LENGTH).nullable(),
 });
 
-export const ThreatCreateInput = InputBase.extend({
-  element_id: InputBase.shape.element_id.default(null),
-  description: InputBase.shape.description.default(''),
-  status: InputBase.shape.status.default('open'),
-  library_ref: InputBase.shape.library_ref.default(null),
+export type ThreatInputBase = z.infer<typeof ThreatInputBase>;
+
+export const ThreatCreateInput = ThreatInputBase.extend({
+  element_id: ThreatInputBase.shape.element_id.default(null),
+  description: ThreatInputBase.shape.description.default(''),
+  status: ThreatInputBase.shape.status.default('open'),
+  library_ref: ThreatInputBase.shape.library_ref.default(null),
 });
 export type ThreatCreateInput = z.infer<typeof ThreatCreateInput>;
 
-export const ThreatUpdateInput = InputBase.omit({ threat_model_id: true }).partial();
+// Neither the threat model nor the origin can change after creation: origin is provenance (Principle VI).
+export const ThreatUpdateInput = ThreatInputBase.omit({ threat_model_id: true, origin: true }).partial();
 export type ThreatUpdateInput = z.infer<typeof ThreatUpdateInput>;
 
 // No maximum on title or description: threats migrated from legacy entries can be ~100 KB (FR-031).

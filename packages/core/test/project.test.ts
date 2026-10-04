@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { ProjectCreateInput, ProjectRecord, ProjectUpdateInput, formatValidationError } from '../src/index.js';
+import {
+  ProjectCreateInput,
+  ProjectInputBase,
+  ProjectRecord,
+  ProjectUpdateInput,
+  formatValidationError,
+} from '../src/index.js';
 
 describe('ProjectCreateInput (FR-032, FR-033)', () => {
   it('trims the name and defaults the description to empty', () => {
@@ -34,6 +40,14 @@ describe('ProjectCreateInput (FR-032, FR-033)', () => {
       expect(formatValidationError(result.error!)).toContain(`unknown field "${key}"`);
     },
   );
+});
+
+describe('ProjectInputBase (FR-032)', () => {
+  it('is the strict building block: nothing defaulted, unknown keys rejected', () => {
+    expect(ProjectInputBase.safeParse({ name: 'x' }).success).toBe(false);
+    expect(ProjectInputBase.safeParse({ name: 'x', description: '', foo: 1 }).success).toBe(false);
+    expect(ProjectInputBase.parse(ProjectCreateInput.parse({ name: 'x' }))).toEqual({ name: 'x', description: '' });
+  });
 });
 
 describe('ProjectUpdateInput (FR-032)', () => {

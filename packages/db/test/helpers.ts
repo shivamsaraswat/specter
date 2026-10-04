@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { expect } from 'vitest';
-import { TEST_DB, connectionSettings } from './connection.js';
+import { TEST_DB, connectionSettings, escapeIdentifier } from './connection.js';
 
 let sharedPool: pg.Pool | undefined;
 
@@ -44,24 +44,33 @@ export async function expectPgError(promise: Promise<unknown>, expected: PgError
 const COUNTABLE_TABLES = ['users', 'projects', 'threat_models', 'elements', 'threats', 'mitigations'] as const;
 type CountableTable = (typeof COUNTABLE_TABLES)[number];
 
-// The table name is checked against a fixed allow-list because identifiers cannot be parameterized.
+export { escapeIdentifier };
+
+const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]*$/;
+
 export async function count(table: CountableTable, where?: { column: string; value: unknown }): Promise<number> {
   if (!COUNTABLE_TABLES.includes(table)) throw new Error(`count(): unsupported table ${table}`);
-  if (where !== undefined && !/^[a-z_]+$/.test(where.column)) throw new Error('count(): bad column');
+  if (where !== undefined && !IDENTIFIER_PATTERN.test(where.column)) throw new Error('count(): bad column');
+  const from = escapeIdentifier(table);
   const sql = where
-    ? `SELECT count(*)::int AS n FROM ${table} WHERE ${where.column} = $1`
-    : `SELECT count(*)::int AS n FROM ${table}`;
+    ? `SELECT count(*)::int AS n FROM ${from} WHERE ${escapeIdentifier(where.column)} = $1`
+    : `SELECT count(*)::int AS n FROM ${from}`;
   const { rows } = await pool().query<{ n: number }>(sql, where ? [where.value] : []);
   return rows[0]?.n ?? 0;
 }
 
 type Row = Record<string, unknown> & { id: string };
 
-async function insert(table: string, values: Record<string, unknown>): Promise<Row> {
+const INSERTABLE_TABLES = ['projects', 'threat_models', 'elements', 'threats', 'mitigations'] as const;
+
+async function insert(table: (typeof INSERTABLE_TABLES)[number], values: Record<string, unknown>): Promise<Row> {
+  if (!INSERTABLE_TABLES.includes(table)) throw new Error(`insert(): unsupported table ${table}`);
   const columns = Object.keys(values);
+  if (!columns.every((column) => IDENTIFIER_PATTERN.test(column))) throw new Error('insert(): bad column name');
   const placeholders = columns.map((_, i) => `$${i + 1}`);
   const { rows } = await pool().query<Row>(
-    `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
+    `INSERT INTO ${escapeIdentifier(table)} (${columns.map(escapeIdentifier).join(', ')})
+     VALUES (${placeholders.join(', ')}) RETURNING *`,
     Object.values(values),
   );
   const row = rows[0];

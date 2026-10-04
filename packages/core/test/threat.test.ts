@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { STRIDE_CATEGORIES, ThreatCreateInput, ThreatRecord, ThreatUpdateInput } from '../src/index.js';
+import {
+  STRIDE_CATEGORIES,
+  ThreatCreateInput,
+  ThreatInputBase,
+  ThreatRecord,
+  ThreatUpdateInput,
+} from '../src/index.js';
 
 const model = randomUUID();
 const valid = {
@@ -64,6 +70,15 @@ describe('ThreatCreateInput', () => {
   });
 });
 
+describe('ThreatInputBase', () => {
+  it('is the strict building block: nothing defaulted, unknown keys rejected', () => {
+    expect(ThreatInputBase.safeParse(valid).success).toBe(false);
+    const full = ThreatCreateInput.parse(valid);
+    expect(ThreatInputBase.parse(full)).toEqual(full);
+    expect(ThreatInputBase.safeParse({ ...full, foo: 1 }).success).toBe(false);
+  });
+});
+
 describe('ThreatUpdateInput', () => {
   it('applies no defaults', () => {
     const parsed = ThreatUpdateInput.parse({ status: 'mitigated' });
@@ -73,6 +88,10 @@ describe('ThreatUpdateInput', () => {
 
   it('does not accept threat_model_id', () => {
     expect(ThreatUpdateInput.safeParse({ threat_model_id: model }).success).toBe(false);
+  });
+
+  it('does not accept origin: provenance is fixed when a threat is created', () => {
+    expect(ThreatUpdateInput.safeParse({ origin: 'manual' }).success).toBe(false);
   });
 });
 

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { migrate } from '../src/index.js';
-import { TEST_DB, connectionSettings } from './connection.js';
+import { TEST_DB, connectionSettings, escapeIdentifier } from './connection.js';
 
 // Runs once before the suite, in Vitest's main process. Recreates the package's own database from
 // scratch and migrates it, so the suite always runs against the current migration files rather
@@ -20,8 +20,8 @@ export default async function setup(): Promise<void> {
   const maintenance = new pg.Client(connectionSettings(process.env.DB_NAME ?? 'postgres'));
   await maintenance.connect();
   try {
-    await maintenance.query(`DROP DATABASE IF EXISTS ${TEST_DB} WITH (FORCE)`);
-    await maintenance.query(`CREATE DATABASE ${TEST_DB}`);
+    await maintenance.query(`DROP DATABASE IF EXISTS ${escapeIdentifier(TEST_DB)} WITH (FORCE)`);
+    await maintenance.query(`CREATE DATABASE ${escapeIdentifier(TEST_DB)}`);
   } finally {
     await maintenance.end();
   }

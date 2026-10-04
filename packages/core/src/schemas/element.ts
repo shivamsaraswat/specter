@@ -4,7 +4,7 @@ import { NAME_MAX_LENGTH, jsonObject, requiredText, timestamp, uuid } from '../f
 
 // Which element types may be flow endpoints or parents, and which type changes are allowed, depend
 // on the stored data and are enforced by storage (see contracts/db-errors.md), not here.
-const InputBase = z.strictObject({
+export const ElementInputBase = z.strictObject({
   threat_model_id: uuid,
   type: z.enum(ELEMENT_TYPES),
   name: requiredText(NAME_MAX_LENGTH),
@@ -15,18 +15,20 @@ const InputBase = z.strictObject({
   parent_boundary_id: uuid.nullable(),
 });
 
-export const ElementCreateInput = InputBase.extend({
-  properties: InputBase.shape.properties.default({}),
-  layout: InputBase.shape.layout.default(null),
-  source_element_id: InputBase.shape.source_element_id.default(null),
-  target_element_id: InputBase.shape.target_element_id.default(null),
-  parent_boundary_id: InputBase.shape.parent_boundary_id.default(null),
+export type ElementInputBase = z.infer<typeof ElementInputBase>;
+
+export const ElementCreateInput = ElementInputBase.extend({
+  properties: ElementInputBase.shape.properties.default({}),
+  layout: ElementInputBase.shape.layout.default(null),
+  source_element_id: ElementInputBase.shape.source_element_id.default(null),
+  target_element_id: ElementInputBase.shape.target_element_id.default(null),
+  parent_boundary_id: ElementInputBase.shape.parent_boundary_id.default(null),
 });
 export type ElementCreateInput = z.infer<typeof ElementCreateInput>;
 
 // Built from the default-free base: Zod's .partial() keeps .default()s, which would silently
 // reset properties to {} on every update that does not mention it.
-export const ElementUpdateInput = InputBase.omit({ threat_model_id: true }).partial();
+export const ElementUpdateInput = ElementInputBase.omit({ threat_model_id: true }).partial();
 export type ElementUpdateInput = z.infer<typeof ElementUpdateInput>;
 
 export const ElementRecord = z.strictObject({

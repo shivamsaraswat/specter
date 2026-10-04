@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { MitigationCreateInput, MitigationRecord, MitigationUpdateInput } from '../src/index.js';
+import {
+  MitigationCreateInput,
+  MitigationInputBase,
+  MitigationRecord,
+  MitigationUpdateInput,
+} from '../src/index.js';
 
 const threat = randomUUID();
 const valid = { threat_id: threat, description: 'Rate-limit login' };
@@ -44,6 +49,15 @@ describe('MitigationCreateInput', () => {
     for (const key of ['id', 'created_at', 'updated_at', 'foo']) {
       expect(MitigationCreateInput.safeParse({ ...valid, [key]: 'v' }).success).toBe(false);
     }
+  });
+});
+
+describe('MitigationInputBase', () => {
+  it('is the strict building block: nothing defaulted, unknown keys rejected', () => {
+    expect(MitigationInputBase.safeParse(valid).success).toBe(false);
+    const full = MitigationCreateInput.parse(valid);
+    expect(MitigationInputBase.parse(full)).toEqual(full);
+    expect(MitigationInputBase.safeParse({ ...full, foo: 1 }).success).toBe(false);
   });
 });
 

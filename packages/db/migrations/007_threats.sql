@@ -58,6 +58,12 @@ BEGIN
     RAISE EXCEPTION 'a threat cannot move to another threat model'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'threats_threat_model_immutable';
   END IF;
+  -- Provenance is fixed at creation: an AI- or rule-generated threat can never be relabelled
+  -- as manual. Accepting or editing it changes status and content, not where it came from.
+  IF NEW.origin <> OLD.origin THEN
+    RAISE EXCEPTION 'a threat''s origin cannot change'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'threats_origin_immutable';
+  END IF;
   RETURN NEW;
 END $$;
 

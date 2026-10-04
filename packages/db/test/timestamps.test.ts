@@ -9,6 +9,7 @@ import {
   createThreatModel,
   createUser,
   deleteProjects,
+  escapeIdentifier,
   pool,
 } from './helpers.js';
 
@@ -18,11 +19,11 @@ const created: string[] = [];
 type Row = Record<string, unknown> & { id: string };
 
 interface TableCase {
-  table: string;
+  table: 'projects' | 'threat_models' | 'elements' | 'threats' | 'mitigations';
   // Creates a row, optionally with explicit timestamps (the trusted-writer path).
   make: (extra?: Record<string, unknown>) => Promise<Row>;
   // A harmless change to a non-timestamp column.
-  touch: string;
+  touch: { column: string; value: string };
 }
 
 async function parents() {
@@ -40,22 +41,22 @@ const cases: TableCase[] = [
       created.push(p.id);
       return p;
     },
-    touch: `description = 'changed'`,
+    touch: { column: 'description', value: 'changed' },
   },
   {
     table: 'threat_models',
     make: async (extra) => createThreatModel((await parents()).project.id, extra),
-    touch: `status = 'in_review'`,
+    touch: { column: 'status', value: 'in_review' },
   },
   {
     table: 'elements',
     make: async (extra) => createElement((await parents()).model.id, 'process', extra),
-    touch: `name = 'renamed'`,
+    touch: { column: 'name', value: 'renamed' },
   },
   {
     table: 'threats',
     make: async (extra) => createThreat((await parents()).model.id, extra),
-    touch: `description = 'changed'`,
+    touch: { column: 'description', value: 'changed' },
   },
   {
     table: 'mitigations',
@@ -63,14 +64,13 @@ const cases: TableCase[] = [
       const { model } = await parents();
       return createMitigation((await createThreat(model.id)).id, extra);
     },
-    touch: `description = 'changed'`,
+    touch: { column: 'description', value: 'changed' },
   },
 ];
 
-async function times(table: string, id: string): Promise<{ created_at: Date; updated_at: Date }> {
-  // `table` comes from the fixed list above, never from input.
+async function times(table: TableCase['table'], id: string): Promise<{ created_at: Date; updated_at: Date }> {
   const { rows } = await pool().query<{ created_at: Date; updated_at: Date }>(
-    `SELECT created_at, updated_at FROM ${table} WHERE id = $1`,
+    `SELECT created_at, updated_at FROM ${escapeIdentifier(table)} WHERE id = $1`,
     [id],
   );
   const row = rows[0];
@@ -100,7 +100,10 @@ describe.each(cases)('timestamps on $table (FR-030)', ({ table, make, touch }) =
     await sleep(15);
 
     // Autocommit: this runs in its own transaction, so now() differs from the insert's.
-    await pool().query(`UPDATE ${table} SET ${touch} WHERE id = $1`, [row.id]);
+    await pool().query(`UPDATE ${escapeIdentifier(table)} SET ${escapeIdentifier(touch.column)} = $1 WHERE id = $2`, [
+      touch.value,
+      row.id,
+    ]);
 
     const after = await times(table, row.id);
     expect(after.created_at.getTime()).toBe(before.created_at.getTime());
@@ -112,7 +115,10 @@ describe.each(cases)('timestamps on $table (FR-030)', ({ table, make, touch }) =
     const before = await times(table, row.id);
     await sleep(15);
 
-    await pool().query(`UPDATE ${table} SET created_at = '2001-01-01Z', updated_at = '2001-01-01Z' WHERE id = $1`, [row.id]);
+    await pool().query(
+      `UPDATE ${escapeIdentifier(table)} SET created_at = '2001-01-01Z', updated_at = '2001-01-01Z' WHERE id = $1`,
+      [row.id],
+    );
 
     const after = await times(table, row.id);
     expect(after.created_at.getTime()).toBe(before.created_at.getTime());

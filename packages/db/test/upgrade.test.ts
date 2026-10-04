@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { migrate } from '../src/index.js';
-import { connectionSettings } from './connection.js';
+import { connectionSettings, escapeIdentifier } from './connection.js';
 import { closePool, pool, uid } from './helpers.js';
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations/', import.meta.url));
@@ -21,7 +21,7 @@ const openPools: pg.Pool[] = [];
 // Creates an empty database next to the test database and returns a pool connected to it.
 async function scratchDatabase(): Promise<pg.Pool> {
   const name = `specter_upgrade_${uid()}`;
-  await pool().query(`CREATE DATABASE ${name}`);
+  await pool().query(`CREATE DATABASE ${escapeIdentifier(name)}`);
   scratch.push(name);
   const p = new pg.Pool(connectionSettings(name));
   openPools.push(p);
@@ -50,7 +50,7 @@ async function recordedMigrations(p: pg.Pool): Promise<Array<{ name: string; app
 }
 
 async function snapshot(p: pg.Pool, table: 'threat_entries' | 'users'): Promise<unknown[]> {
-  const { rows } = await p.query<{ j: unknown }>(`SELECT to_jsonb(t) AS j FROM ${table} t ORDER BY id`);
+  const { rows } = await p.query<{ j: unknown }>(`SELECT to_jsonb(t) AS j FROM ${escapeIdentifier(table)} t ORDER BY id`);
   return rows.map((r) => r.j);
 }
 
@@ -64,7 +64,7 @@ async function tablesPresent(p: pg.Pool, tables: string[]): Promise<Record<strin
 
 afterAll(async () => {
   await Promise.all(openPools.map((p) => p.end()));
-  for (const name of scratch) await pool().query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+  for (const name of scratch) await pool().query(`DROP DATABASE IF EXISTS ${escapeIdentifier(name)} WITH (FORCE)`);
   await closePool();
 });
 
@@ -130,6 +130,28 @@ describe('a brand-new install (US1, SC-002)', () => {
     const present = await tablesPresent(empty, ['threat_entries', 'users', ...DOMAIN_TABLES]);
     expect(Object.values(present).every((r) => r !== null)).toBe(true);
     expect((await recordedMigrations(empty)).map((m) => m.name)).toEqual(migrationFiles);
+  });
+});
+
+describe('two instances starting at the same moment (spec edge case, FR-001, FR-004)', () => {
+  it('applies every schema change exactly once', async () => {
+    const empty = await scratchDatabase();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      await Promise.all([migrate(empty), migrate(empty)]);
+
+      const applied = log.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.startsWith('Applied migration '))
+        .sort();
+      expect(applied).toEqual(migrationFiles.map((file) => `Applied migration ${file}`));
+    } finally {
+      log.mockRestore();
+    }
+
+    expect((await recordedMigrations(empty)).map((m) => m.name)).toEqual(migrationFiles);
+    const present = await tablesPresent(empty, DOMAIN_TABLES);
+    expect(Object.values(present).every((r) => r !== null)).toBe(true);
   });
 });
 

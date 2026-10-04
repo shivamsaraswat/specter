@@ -208,7 +208,9 @@ when:
 | `elements_parent_is_boundary` | the parent is not a `trust_boundary` in the same threat model | FR-015 |
 | `elements_boundary_no_cycle` | re-parenting a boundary would form a cycle (#8) | FR-016 |
 
-The `threats_check` trigger rejects a change to `threat_model_id` (`threats_threat_model_immutable`).
+The `threats_check` trigger rejects a change to `threat_model_id` (`threats_threat_model_immutable`)
+and a change to `origin` (`threats_origin_immutable`). The second was added after review: provenance
+must not be rewritable, so an AI-generated threat can't be relabelled manual (Principle VI).
 The `mitigations_check` trigger rejects a change to `threat_id` (`mitigations_threat_immutable`).
 
 Rules that only look at the row itself are plain named `CHECK`s:

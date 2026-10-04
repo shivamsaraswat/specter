@@ -41,6 +41,11 @@ docker build .
 so this works against a freshly created database volume — you don't need to have run the full
 app first.
 
+`packages/db`'s tests also drop and recreate a database called `specter_db_test`, and create and
+drop short-lived `specter_upgrade_*` databases, on that same server. They need a role that can
+create databases: the `postgres` user in `docker-compose.yml` and in the CI service container can.
+Don't point `DB_HOST` at a server that holds anything that matters.
+
 ## Merge gate
 
 `main` only accepts pull requests: direct pushes, force pushes and branch deletion are rejected.

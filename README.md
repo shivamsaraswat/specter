@@ -86,6 +86,12 @@ Each of the four `pnpm run` commands above fans out to every workspace package
 are added later. `pnpm run test` migrates and seeds a fresh test database itself, so this works
 even on a database volume that's never been started before.
 
+The tests need a role that can create databases (the `postgres` user in `docker-compose.yml` and in
+CI can). `packages/db`'s tests drop and recreate a database called `specter_db_test`, and create and
+drop short-lived `specter_upgrade_*` databases, on the server `DB_HOST` points to, so never point
+`pnpm test` at a server that holds anything that matters. `apps/api`'s own tests still use
+`DB_NAME` itself, and insert rows into it on every run.
+
 ### CI
 
 Every pull request to `main` runs the same four commands above, plus a container build, as

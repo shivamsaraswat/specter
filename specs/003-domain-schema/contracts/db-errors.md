@@ -50,6 +50,7 @@ Milestone 5.
 | | | `elements_flow_endpoints`, `elements_flow_not_self_loop`, `elements_flow_no_parent`, `elements_parent_not_self` | row-shape rules |
 | | | `elements_flow_endpoint_type`, `elements_parent_is_boundary`, `elements_boundary_no_cycle`, `elements_type_class_immutable` | trigger: type and structure rules |
 | | | `elements_threat_model_immutable`, `threats_threat_model_immutable`, `mitigations_threat_immutable` | trigger: moving a record to another parent |
+| | | `threats_origin_immutable` | trigger: changing a threat's `origin` |
 | `23502` not_null_violation | required column missing | (column in `err.column`) | e.g. `origin` omitted (FR-025) |
 | `428C9` generated_always | write to a generated column | none | any write to `threats.risk` |
 | `22P02` invalid_text_representation | malformed UUID | none | non-UUID text in an `id` or FK column |

@@ -110,7 +110,7 @@ themselves, and `flow` and `boundary` can never change type.
 | `impact` | `TEXT NOT NULL` | ∈ `Low`, `Medium`, `High` | FR-022 |
 | `risk` | `TEXT NOT NULL GENERATED ALWAYS AS (...) STORED` | the matrix below; writes rejected with `428C9` | FR-023 |
 | `status` | `TEXT NOT NULL DEFAULT 'open'` | ∈ `open`, `mitigated`, `accepted`, `not_applicable` | FR-024 |
-| `origin` | `TEXT NOT NULL` | ∈ `manual`, `rule`, `ai`; **no default** | FR-025 |
+| `origin` | `TEXT NOT NULL` | ∈ `manual`, `rule`, `ai`; **no default**; **immutable** after insert | FR-025 |
 | `library_ref` | `TEXT NULL` | `char_length <= 200` | FR-019 |
 
 **Risk matrix** (FR-023; matches `deriveRisk` in `@specter/core`):
@@ -166,5 +166,5 @@ cascade and every delete-block check would scan the whole table:
 | `set_timestamps()` | trigger function | `003` | Freezes `created_at` and sets `updated_at := now()`. Used `BEFORE UPDATE` on all five tables |
 | `element_class(text)` | `IMMUTABLE` SQL function | `003` | Maps type → `node` / `flow` / `boundary` |
 | `elements_check()` | trigger function | `006` | Type-class and endpoint/parent rules, same-model parent, cycles, immutable model |
-| `threats_check()` | trigger function | `007` | Immutable `threat_model_id` |
+| `threats_check()` | trigger function | `007` | Immutable `threat_model_id` and `origin` |
 | `mitigations_check()` | trigger function | `008` | Immutable `threat_id` |

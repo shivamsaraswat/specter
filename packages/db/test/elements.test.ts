@@ -9,6 +9,7 @@ import {
   createThreatModel,
   createUser,
   deleteProjects,
+  escapeIdentifier,
   expectPgError,
   pool,
   uid,
@@ -28,7 +29,7 @@ const flow = (model: string, source: string, target: string, overrides: Record<s
   createElement(model, 'data_flow', { source_element_id: source, target_element_id: target, ...overrides });
 
 async function setColumn(id: string, column: 'type' | 'parent_boundary_id' | 'threat_model_id', value: string | null) {
-  await pool().query(`UPDATE elements SET ${column} = $1 WHERE id = $2`, [value, id]);
+  await pool().query(`UPDATE elements SET ${escapeIdentifier(column)} = $1 WHERE id = $2`, [value, id]);
 }
 
 beforeAll(async () => {

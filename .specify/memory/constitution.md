@@ -12,6 +12,10 @@ Modified principles:
   - I. Secure Coding by Default — "Kysely once Phase 1's monorepo lands" corrected to Phase 1
     Milestone 5, the first milestone with application queries against the domain tables. The rule
     itself is unchanged: parameterized `pg` still satisfies it.
+  - I. Secure Coding by Default — also clarified for SQL identifiers, which cannot be parameters:
+    allowed only from a constant or fixed allow-list, and always through the driver's identifier
+    escaping (`pg.escapeIdentifier`); never from request input. Values stay parameters-only. Found
+    when the schema tests needed dynamic table and database names.
   - IV. Maintainability & Observability — the same Kysely timing correction.
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
@@ -20,7 +24,8 @@ Threat Model changes:
   - Assets (current): threat-model records (projects, threat models, elements, threats,
     mitigations). Not reachable over the network until Milestone 5.
   - Tampering: new "Mitigated (Phase 1 Milestone 3)" note: storage itself enforces the integrity
-    of those records, so no future writer can store a structurally inconsistent model.
+    of those records, so no future writer can store a structurally inconsistent model, and a
+    threat's `origin` cannot be rewritten after creation.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this command is the
   constitution file only; dependent templates read it at runtime per the scope guard)
@@ -34,7 +39,11 @@ Templates requiring follow-up: none checked in this run (scope of this command i
 All database access MUST use parameterized queries or a typed query builder (currently `pg`
 with parameterized SQL; Kysely from Phase 1 Milestone 5, when the first application queries against
 the domain tables land) — string-concatenated or
-template-interpolated SQL is forbidden everywhere. All request input (body, params, query)
+template-interpolated SQL is forbidden everywhere: values are always parameters. The one exception
+is an SQL identifier (a table, column or database name), which cannot be a parameter. It may be
+built into a statement only if it is a constant or comes from a fixed allow-list, and it MUST be
+passed through the driver's identifier escaping (`pg.escapeIdentifier`, or the query builder's
+equivalent); an identifier derived from request input is never allowed. All request input (body, params, query)
 MUST be validated at the boundary before use — reject unknown shapes, enforce type/length/enum
 constraints (inline today, as in `src/routes/threats.js` and `src/routes/users.js`; via the
 shared zod schemas in `packages/core` from Phase 1 onward) rather than trusting the client.
@@ -210,8 +219,9 @@ webhooks.
   — the API, the rule engine, AI drafts — can store a structurally inconsistent model: references
   stay inside one threat model, data-flow endpoints and boundary parents have the right element
   types, trust boundaries stay acyclic, an element with threats cannot be deleted from under
-  them, `risk` is derived and cannot be set, and `origin` has no default so a rule- or
-  AI-generated threat cannot be stored labelled as manual.
+  them, `risk` is derived and cannot be set, and `origin` has no default and cannot change after
+  creation, so a rule- or AI-generated threat can neither be stored labelled as manual nor be
+  relabelled later.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat entry or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app

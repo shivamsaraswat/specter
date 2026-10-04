@@ -79,7 +79,7 @@ names without the suffix where it reads naturally, e.g. `ThreatCreateInput`, `Th
 | Project | **`name`** · `description` = `''` | — |
 | ThreatModel | **`project_id`**, **`name`** · `methodology` = `'STRIDE'`, `status` = `'draft'` | `project_id` |
 | Element | **`threat_model_id`**, **`type`**, **`name`** · `properties` = `{}`, `layout` = `null`, `source_element_id` = `null`, `target_element_id` = `null`, `parent_boundary_id` = `null` | `threat_model_id` |
-| Threat | **`threat_model_id`**, **`category`**, **`title`**, **`likelihood`**, **`impact`**, **`origin`** · `element_id` = `null`, `description` = `''`, `status` = `'open'`, `library_ref` = `null` | `threat_model_id` |
+| Threat | **`threat_model_id`**, **`category`**, **`title`**, **`likelihood`**, **`impact`**, **`origin`** · `element_id` = `null`, `description` = `''`, `status` = `'open'`, `library_ref` = `null` | `threat_model_id`, `origin` |
 | Mitigation | **`threat_id`**, **`description`** · `status` = `'proposed'`, `external_ref` = `null` | `threat_id` |
 
 | Schema | Built as | Use |
@@ -125,6 +125,11 @@ body. There is one clause per issue, in Zod's issue order, joined by `; `:
 
 Every clause for a field issue contains the field name. Core unit tests check this for every kind
 of failure. The message never includes the rejected *value*, so user input isn't echoed back.
+
+Field and key names come from the client too, so each path segment and each unknown key is cleaned
+before it is put in the message: control characters, including newlines, are replaced by a space,
+and each name is cut to 64 characters. A hostile key can't break the single-line shape or make the
+message large.
 
 `XRecord` schemas follow storage, not input limits: `ThreatRecord.title` and `.description` have
 **no maximum**, so legacy threats imported by Milestone 4 parse (FR-031, FR-032).

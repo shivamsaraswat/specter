@@ -2,20 +2,22 @@ import { z } from 'zod';
 import { MITIGATION_STATUSES } from '../enums.js';
 import { DESCRIPTION_MAX_LENGTH, httpUrl, requiredText, timestamp, uuid } from '../fields.js';
 
-const InputBase = z.strictObject({
+export const MitigationInputBase = z.strictObject({
   threat_id: uuid,
   description: requiredText(DESCRIPTION_MAX_LENGTH),
   status: z.enum(MITIGATION_STATUSES),
   external_ref: httpUrl.nullable(),
 });
 
-export const MitigationCreateInput = InputBase.extend({
-  status: InputBase.shape.status.default('proposed'),
-  external_ref: InputBase.shape.external_ref.default(null),
+export type MitigationInputBase = z.infer<typeof MitigationInputBase>;
+
+export const MitigationCreateInput = MitigationInputBase.extend({
+  status: MitigationInputBase.shape.status.default('proposed'),
+  external_ref: MitigationInputBase.shape.external_ref.default(null),
 });
 export type MitigationCreateInput = z.infer<typeof MitigationCreateInput>;
 
-export const MitigationUpdateInput = InputBase.omit({ threat_id: true }).partial();
+export const MitigationUpdateInput = MitigationInputBase.omit({ threat_id: true }).partial();
 export type MitigationUpdateInput = z.infer<typeof MitigationUpdateInput>;
 
 export const MitigationRecord = z.strictObject({

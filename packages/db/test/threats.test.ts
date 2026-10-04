@@ -183,6 +183,22 @@ describe('threats: status and origin (FR-024, FR-025)', () => {
     }
   });
 
+  it('never lets origin change afterwards, so provenance cannot be rewritten (Principle VI)', async () => {
+    const t = await createThreat(modelId, { origin: 'ai' });
+
+    for (const origin of ['manual', 'rule']) {
+      await expectPgError(pool().query('UPDATE threats SET origin = $1 WHERE id = $2', [origin, t.id]), {
+        code: '23514',
+        constraint: 'threats_origin_immutable',
+      });
+    }
+    const { rows } = await pool().query<{ origin: string }>('SELECT origin FROM threats WHERE id = $1', [t.id]);
+    expect(rows[0]?.origin).toBe('ai');
+
+    // Writing the same value is not a change, and other fields stay editable.
+    await pool().query(`UPDATE threats SET origin = 'ai', status = 'accepted' WHERE id = $1`, [t.id]);
+  });
+
   it('rejects a threat model that does not exist', async () => {
     await expectPgError(createThreat(randomUUID()), { code: '23503', constraint: 'threats_threat_model_id_fkey' });
   });

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { ElementCreateInput, ElementRecord, ElementUpdateInput } from '../src/index.js';
+import { ElementCreateInput, ElementInputBase, ElementRecord, ElementUpdateInput } from '../src/index.js';
 
 const model = randomUUID();
 const valid = { threat_model_id: model, type: 'process', name: 'API' };
@@ -41,6 +41,15 @@ describe('ElementCreateInput', () => {
 
   it.each(['id', 'created_at', 'updated_at', 'foo'])('rejects %s', (key) => {
     expect(ElementCreateInput.safeParse({ ...valid, [key]: 'v' }).success).toBe(false);
+  });
+});
+
+describe('ElementInputBase', () => {
+  it('is the strict building block: nothing defaulted, unknown keys rejected', () => {
+    expect(ElementInputBase.safeParse(valid).success).toBe(false);
+    const full = ElementCreateInput.parse(valid);
+    expect(ElementInputBase.parse(full)).toEqual(full);
+    expect(ElementInputBase.safeParse({ ...full, foo: 1 }).success).toBe(false);
   });
 });
 
