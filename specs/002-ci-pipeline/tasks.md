@@ -255,6 +255,13 @@ action (plan.md, research.md #9).
 
   Close each canary unmerged. Record the pass/fail matrix in `specs/002-ci-pipeline/quickstart.md` under a new "Validation log (date)" heading.
 
+  **Deferred 2026-09-28** — the maintainer has no second GitHub account for the fork-PR scenario
+  and chose to defer this whole task rather than run a partial version now. Not started. Some of
+  this is already indirectly evidenced from T018/T033's real pushes: `typecheck`, `lint`, `test`
+  and `docker-build` reported as separate named checks, ran within ~1 minute (well under SC-003),
+  and a superseded-run scenario naturally occurred across the two pushes to PR #3 without incident.
+  None of that substitutes for the deliberate canary/fork/lockfile-guard proof this task asks for.
+
 **Checkpoint**: US1 is complete. The merge gate is live, and every later PR, including the ones for US2 and US3, is checked.
 
 ---
@@ -298,6 +305,11 @@ action (plan.md, research.md #9).
   3. Close it unmerged.
   4. Confirm the weekly schedule is listed under Actions → CodeQL.
   5. Record the result in the quickstart validation log.
+
+  **Deferred 2026-09-28**, alongside T020, at the maintainer's request. Not started. CodeQL is
+  confirmed *running* (both the push-triggered run on `main` and the PR run on `feat/phase-1`
+  completed `success`), but no deliberately-unsafe canary has been used to confirm it actually
+  *flags* a real finding.
 
 **Checkpoint**: US1 and US2 work independently. CodeQL findings are visible, and the merge gate is unaffected.
 
@@ -355,6 +367,21 @@ action (plan.md, research.md #9).
   3. Within one week, check Insights → Dependency graph → Dependabot for all three ecosystems. Every proposal PR must run the four required checks.
   4. Record the results in the quickstart validation log.
 
+  **Partially confirmed 2026-09-28** (steps 1–2; step 3 needs to wait out its one-week window,
+  and is also naturally exercised whenever the first real Dependabot PR arrives):
+  - **SBOM count**: the filtered SBOM query returned **319** npm packages, against **311**
+    `packages:` entries in `pnpm-lock.yaml` (within SC-009's 10% tolerance). This is a strong
+    positive signal on its own: before the lockfile fix, research.md #2 found this query would
+    have returned **zero**. It also matches the "success" conclusion already seen on all three
+    of Dependabot's first-run update checks right after the merge (npm_and_yarn, docker,
+    github-actions — run ids 1593493631/2/3).
+  - **Audit dispatch**: `gh workflow run audit.yml` → run
+    [36342266835](https://github.com/shivamsaraswat/specter/actions/runs/36342266835), completed
+    `success`. Log: `Full report (all severities)` step printed "No known vulnerabilities found";
+    the `Fail on high or critical` gate step ran and also reported clean.
+  - **Deferred**: step 3 (a real Dependabot version-update PR opening and running the four
+    required checks) needs the one-week window, or the first natural update cycle, to observe.
+
 **Checkpoint**: all three user stories work independently.
 
 ---
@@ -390,10 +417,22 @@ action (plan.md, research.md #9).
      - **Elevation of Privilege**: the read-only default token, job-scoped `security-events: write`, and a merge gate that nobody can bypass.
      - **Accepted risk**: `pmOnFail: ignore` disables pnpm's own version check. The compensating controls are Corepack and the pinned CI install. The revert trigger is dependabot-core#15904.
   4. Update the `**Version**` line to `1.2.0` and `Last Amended` to the commit date.
-- [ ] T033 Run the full local suite once more, from a fresh volume: `docker compose down -v && docker compose up -d db && pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && docker build --pull .`, then `grep -c '^---' pnpm-lock.yaml`, which must print `0`. Everything must pass before the final push.
+- [x] T033 *(Done 2026-09-28; approved by the maintainer at each step.)* Run the full local suite once more, from a fresh volume: `docker compose down -v && docker compose up -d db && pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test && docker build --pull .`, then `grep -c '^---' pnpm-lock.yaml`, which must print `0`. Everything must pass before the final push.
   - Then, **⚠ confirm** before each step: push, wait until all four required checks pass on the PR's latest commit, and merge the CI PR into `main`.
   - This is the **merge point**. T020, T024, T029 and T034 depend on it.
+
+  **Confirmed**: local suite green on a fresh volume (21/21 tests, clean typecheck/lint, clean
+  Docker build, 0 lockfile separators). Pushed commit `7e93bc4` to PR #3; all checks passed
+  (`typecheck`, `lint`, `test`, `docker-build`, `analyze (javascript-typescript)`,
+  `analyze (actions)`, plus GitHub's own Dependabot config-validation check). `gh pr view`
+  reported `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`. Merged PR #3 → `main` at merge
+  commit `2d38fb9`. The push-to-`main` runs of `CI` and `CodeQL` both completed `success`, and
+  Dependabot's first update checks for all three ecosystems (npm, docker, github-actions) also
+  completed `success`.
 - [ ] T034 **⚠ confirm** Run quickstart.md §8 (the settings sanity commands) and record the results in the quickstart validation log. For SC-004, re-run the `CI` workflow on one unchanged commit with `gh run rerun <run-id>` **exactly 20 times**, and confirm all 20 runs succeed. A smaller sample does not satisfy SC-004. This task runs after the merge point (end of T033). **Ask the maintainer before this step**, because it uses Actions minutes.
+
+  **Deferred 2026-09-28** at the maintainer's request. Not started — neither the §8 settings
+  sanity commands nor the 20 SC-004 reruns have been run yet.
 
 ---
 

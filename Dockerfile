@@ -5,10 +5,14 @@ WORKDIR /app
 # Install first with only the manifests, so this layer caches across source-only changes.
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/api/package.json ./apps/api/package.json
+COPY packages/core/package.json ./packages/core/package.json
+COPY packages/db/package.json ./packages/db/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY apps/api ./apps/api
-RUN pnpm --filter @specter/api run build
+COPY packages ./packages
+# "..." builds the api's workspace dependencies (@specter/db) first, in dependency order.
+RUN pnpm --filter "@specter/api..." run build
 RUN pnpm --filter=@specter/api deploy --prod /prod/api
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
@@ -17,7 +21,6 @@ WORKDIR /app
 
 COPY --from=builder /prod/api/node_modules ./node_modules
 COPY --from=builder /prod/api/dist ./dist
-COPY --from=builder /prod/api/db ./db
 COPY --from=builder /prod/api/public ./public
 COPY --from=builder /prod/api/package.json ./package.json
 

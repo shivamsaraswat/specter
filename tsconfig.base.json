@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "declaration": false,
+    "customConditions": ["@specter/source"],
     "sourceMap": true
   }
 }

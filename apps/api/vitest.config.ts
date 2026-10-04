@@ -1,6 +1,14 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    // Workspace packages resolve to source, including inside globalSetup (which Vitest loads
+    // outside the `ssr` environment, so export conditions alone don't reach it).
+    alias: {
+      '@specter/db': fileURLToPath(new URL('../../packages/db/src/index.ts', import.meta.url)),
+    },
+  },
   test: {
     include: ['test/**/*.test.ts'],
     environment: 'node',
