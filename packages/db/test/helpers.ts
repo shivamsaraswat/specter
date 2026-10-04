@@ -48,7 +48,6 @@ const COUNTABLE_TABLES = [
   'elements',
   'threats',
   'mitigations',
-  'legacy_threat_links',
 ] as const;
 type CountableTable = (typeof COUNTABLE_TABLES)[number];
 

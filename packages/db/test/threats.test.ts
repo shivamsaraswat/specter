@@ -45,7 +45,7 @@ describe('threats: title and description (FR-019, FR-031)', () => {
     expect(await count('threats', { column: 'threat_model_id', value: modelId })).toBe(0);
   });
 
-  it('accepts a 90,000-character title and description, as legacy entries can hold', async () => {
+  it('accepts a 90,000-character title and description: storage sets no maximum (M3 FR-031)', async () => {
     const t = await createThreat(modelId, { title: 'T'.repeat(90_000), description: 'D'.repeat(90_000) });
     expect(t.title).toHaveLength(90_000);
     expect(t.description).toHaveLength(90_000);

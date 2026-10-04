@@ -104,7 +104,7 @@ describe('length limits: the shared definition is never looser than storage', ()
     expect([...def.matchAll(/<=\s*(\d+)/g)].map((m) => Number(m[1]))).toEqual([expected]);
   });
 
-  it('puts no maximum on threat title or description, so legacy threats fit (FR-031)', async () => {
+  it('puts no maximum on threat title or description in storage; the input schemas cap them (M3 FR-031)', async () => {
     expect(await constraintDefinition(pool(), 'threats', 'threats_title_check')).not.toMatch(/<=/);
     const { rows } = await pool().query(
       `SELECT 1 FROM pg_constraint WHERE conrelid = 'threats'::regclass AND pg_get_constraintdef(oid) ILIKE '%description%'`,

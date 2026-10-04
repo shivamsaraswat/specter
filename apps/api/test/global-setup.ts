@@ -1,12 +1,13 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import pg from 'pg';
 
 // Runs once before the test suite, in Vitest's main process (not a worker), so a fresh
 // database (a new CI service container, or a freshly `docker compose up`'d volume) has a
 // schema and an admin user before any contract test tries to log in. Without this, the
 // DB-backed tests silently depended on someone having migrated the volume beforehand
 // (research.md #4).
-export default async function setup(): Promise<void> {
+export default async function setup(): Promise<() => Promise<void>> {
   // Loads .env.test (repo root) if present, matching env.setup.ts's pattern. It is gitignored,
   // so CI won't have it; CI supplies the same throwaway values directly as job `env:` (research.md
   // #1), and process.loadEnvFile() never overwrites a variable that's already set.
@@ -29,13 +30,30 @@ export default async function setup(): Promise<void> {
     import('../src/auth.js'),
   ]);
 
+  let startedAt: Date;
   try {
     await config.load();
     await migrate();
     await seedAdminUser();
+    // The database's own clock, so this agrees with the created_at that storage assigns.
+    const { rows } = await db.query<{ now: Date }>('SELECT now() AS now');
+    startedAt = rows[0]?.now ?? new Date();
   } finally {
     // Closing the pool is required: an open handle here can keep Vitest's main process alive
     // past the last test, until the job's timeout (FR-010) kills it.
     await db.end();
   }
+
+  // The v1 tests create projects and never delete them, and these tests share a database with
+  // `docker compose up` locally. Deleting every project created during the run (a delete cascades
+  // to what is inside it) keeps a developer's project list free of test data. Nothing here touches
+  // users or anything created before the run started.
+  return async function teardown(): Promise<void> {
+    const pool = new pg.Pool(config.db);
+    try {
+      await pool.query('DELETE FROM projects WHERE created_at >= $1', [startedAt]);
+    } finally {
+      await pool.end();
+    }
+  };
 }

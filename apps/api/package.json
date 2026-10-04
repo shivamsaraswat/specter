@@ -11,20 +11,25 @@
     "lint": "eslint .",
     "test": "vitest run",
     "migrate": "tsx --conditions=@specter/source src/migrate.ts",
+    "openapi": "tsx --conditions=@specter/source src/v1/openapi.ts",
     "start": "node dist/server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1141.0",
+    "@specter/core": "workspace:*",
     "@specter/db": "workspace:*",
     "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.23.0"
+    "kysely": "^0.29.6",
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@seriousme/openapi-schema-validator": "^2.11.0",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.23.1"

@@ -1,27 +1,38 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.3.0 → 1.4.0
-Rationale: Phase 1 / Milestone 4 (specs/004-legacy-data-migration) copies the legacy threat entries
-  into the threat-model domain, once, and adds a table that links each imported threat to the legacy
-  entry it came from. Principle V requires the Threat Model to be updated in the same change when a
-  feature adds an asset, so this records the link as part of the threat-model records asset and the
-  rule that protects it as a Tampering mitigation. This is a MINOR bump, following 1.3.0's own
-  precedent: it adds a current asset entry and a newly enforced mitigation, with no
-  backward-incompatible removal of any rule. It is not a PATCH, which Governance reserves for
-  wording or clarity fixes with no rule change.
-Modified principles: none
+Version change: 1.4.0 → 1.5.0
+Rationale: Phase 1 / Milestone 5 (specs/005-rest-api-v1) adds the authenticated REST API v1 over the
+  threat-model records, writes the first application queries against those tables with Kysely, and
+  removes the legacy threat tracker (the `/api/threats` endpoints, the static browser UI, the legacy
+  entry table, Milestone 4's link table and the data Milestone 4 imported). Principle V requires the
+  Threat Model to be updated in the same change when a feature adds an entry point, makes an asset
+  reachable or crosses a trust boundary, and requires a broadened grant to be called out. This is a
+  MINOR bump, following 1.3.0's and 1.4.0's precedent: it adds assets, an entry point and
+  mitigations and retires others, and removes no principle or rule that was in force. It is not a
+  PATCH, which Governance reserves for wording or clarity fixes with no rule change.
+Modified principles:
+  - I: the typed query builder is now in use (Kysely for the threat-model tables, plain `pg` for
+    login, users and seeding); `/api/v1` bodies are validated with the shared zod schemas; the
+    no-default-allow rule is stated to cover the OpenAPI document. Stale Phase 0 paths corrected.
+  - III, IV: stale Phase 0 paths corrected. IV no longer promises a Kysely-typed migration mechanism:
+    migrations stay plain SQL files and Kysely is used for queries only.
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Assets (current): threat-model records now include the legacy links from imported threats to
-    their original entries. Still not reachable over the network until Milestone 5.
-  - Tampering: new "Mitigated (Phase 1 Milestone 4)" note: a legacy link can only be inserted, or
-    removed together with its threat, so the evidence Milestone 5 needs to reconcile deleted legacy
-    entries cannot be erased silently.
-  - Repudiation: clarified, with no change to the risk. The "Imported" project's creator records
-    ownership of the container, not authorship; the original tracker never stored who wrote an entry.
+  - Assets (current): threat-model records are now reachable, and writable, through `/api/v1`.
+    Threat entry records and the legacy links are removed.
+  - Trust boundaries (current): the static-assets boundary is removed; `/api/v1` (with its OpenAPI
+    document) is added behind bearer authentication.
+  - Tampering: `/api/v1` accepts only `origin = 'manual'`, so a client cannot fake rule or AI
+    provenance. M4's link-protection note is retired with the links. Paths corrected.
+  - Repudiation: partially mitigated by a stdout write log (account, action, record type, id); the
+    open risk stays until Phase 6's audit log. M4's "Imported" attribution note is retired.
+  - Information Disclosure: `/api/v1` errors and logs never carry submitted or stored values.
+  - Denial of Service: the `/api/v1` lists are unpaginated.
+  - Elevation of Privilege: any authenticated account can now read, change and delete every
+    project and everything in it. Called out and accepted until Phase 6's RBAC.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -32,27 +43,28 @@ Templates requiring follow-up: none checked in this run (scope of this change is
 ## Core Principles
 
 ### I. Secure Coding by Default (NON-NEGOTIABLE)
-All database access MUST use parameterized queries or a typed query builder (currently `pg`
-with parameterized SQL; Kysely from Phase 1 Milestone 5, when the first application queries against
-the domain tables land) — string-concatenated or
+All database access MUST use parameterized queries or a typed query builder (Kysely for the
+threat-model tables behind `/api/v1`, since Phase 1 Milestone 5; plain `pg` with parameterized SQL
+for login, users and admin seeding) — string-concatenated or
 template-interpolated SQL is forbidden everywhere: values are always parameters. The one exception
 is an SQL identifier (a table, column or database name), which cannot be a parameter. It may be
 built into a statement only if it is a constant or comes from a fixed allow-list, and it MUST be
 passed through the driver's identifier escaping (`pg.escapeIdentifier`, or the query builder's
 equivalent); an identifier derived from request input is never allowed. All request input (body, params, query)
 MUST be validated at the boundary before use — reject unknown shapes, enforce type/length/enum
-constraints (inline today, as in `src/routes/threats.js` and `src/routes/users.js`; via the
-shared zod schemas in `packages/core` from Phase 1 onward) rather than trusting the client.
+constraints (via the shared zod schemas in `packages/core` for `/api/v1`; inline in
+`apps/api/src/routes/login.ts` and `users.ts`) rather than trusting the client.
 Passwords MUST be hashed with bcrypt (or an equivalent memory-hard algorithm) at cost factor
 ≥ 10 and MUST NEVER be logged, returned in API responses, or stored in plaintext. Authentication
 comparisons that branch on "does this identity exist" (e.g. login) MUST use a constant-time or
 dummy-hash strategy to avoid user-enumeration timing leaks, per the existing `DUMMY_HASH`
-pattern in `src/auth.js`. Secrets — `JWT_SECRET`, DB credentials, admin credentials, and, from
+pattern in `apps/api/src/auth.ts`. Secrets — `JWT_SECRET`, DB credentials, admin credentials, and, from
 Phase 3 onward, LLM provider API keys — MUST be sourced from environment variables or a secrets
 manager, MUST NEVER be committed to the repository, logged, stored in plaintext in the database,
 or sent to the browser, and the process MUST refuse to start if a required secret is missing.
 Every non-public route MUST sit behind an authentication check (or an equivalent, explicitly
-reviewed mechanism) — there is no default-allow.
+reviewed mechanism) — there is no default-allow. That includes the OpenAPI document served under
+`/api/v1`.
 **Rationale**: Specter stores STRIDE threat data and, later, an organization's design
 documents and code context; a security lapse in the tool that tracks threats undermines its own
 purpose. Non-negotiable because these are the few rules that, if violated, turn a code review
@@ -83,7 +95,7 @@ AI pipeline, where regressions are far more expensive to find by hand.
 
 ### III. Code Quality & Simplicity
 Modules stay small and single-purpose (one route file per resource, one concern per function),
-matching today's `src/routes/*.js` structure and, from Phase 1 onward, the target layout in
+matching `apps/api/src/v1/` and `apps/api/src/routes/` (one file per resource) and the target layout in
 plan.md (`apps/api`, `apps/web`, `apps/worker`, `packages/core`, `packages/db`,
 `packages/threat-library`, `packages/llm`). From Phase 1 onward all code MUST be strict-mode
 TypeScript; a bare `any` requires an inline justification. Do not introduce an abstraction,
@@ -98,12 +110,12 @@ shippable phases... keep it YAGNI inside each phase"); building ahead of the cur
 exactly the complexity creep plan.md is structured to prevent.
 
 ### IV. Maintainability & Observability
-Configuration MUST come only from environment variables or a secrets-manager path (`src/config.js`
+Configuration MUST come only from environment variables or a secrets-manager path (`apps/api/src/config.ts`
 today) — never from local config files read at runtime. Logs MUST go to stdout/stderr only (no
 file-based logging), and MUST NOT contain secrets, password hashes, full JWTs, or raw LLM
 provider payloads (prompt/response logging is opt-in and off by default, per plan.md's AI
 security hardening). Schema changes MUST be forward-only SQL files, tracked via the existing
-`schema_migrations` mechanism (or its Kysely-typed equivalent from Phase 1 Milestone 5) — never edited in
+`schema_migrations` mechanism (Kysely is used for queries only; migrations stay plain SQL files) — never edited in
 place once merged. Every environment variable the app reads MUST be documented in `README.md`'s
 environment variable table. Per plan.md's cloud-friendly rules: `/health` MUST return 200 with
 no auth and no DB dependency; the API and worker processes MUST remain stateless and
@@ -156,20 +168,21 @@ over a vendor-locked competitor.
 
 ## Threat Model (STRIDE)
 
-This section reflects the application as implemented today (Phase 0: Node.js/Express 5 API,
-static HTML/JS frontend, PostgreSQL, optional AWS Secrets Manager) and MUST be kept current per
+This section reflects the application as implemented today (Node.js/Express 5 API with a versioned
+JSON API under `/api/v1`, no browser UI until Phase 1 Milestone 6, PostgreSQL, optional AWS Secrets
+Manager) and MUST be kept current per
 Principle V as each phase in plan.md lands. Phase boundaries that will change this section are
 called out inline below; they are not yet implemented and MUST NOT be treated as mitigated until
 they ship.
 
-**Assets (current)**: threat entry records; user credentials (`users.password_hash`); the JWT
-signing secret; database credentials; issued JWTs (bearer tokens) held by clients; the CI/CD
-pipeline's own integrity — the `GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and
-service container images it pulls (Phase 1 Milestone 2, `specs/002-ci-pipeline/`); threat-model
-records — projects, threat models, elements, threats and mitigations (Phase 1 Milestone 3,
-`specs/003-domain-schema/`) and the legacy links from imported threats to their original entries
-(Phase 1 Milestone 4, `specs/004-legacy-data-migration/`), stored in the database but not
-reachable over the network until Phase 1 Milestone 5's API.
+**Assets (current)**: user credentials (`users.password_hash`); the JWT signing secret; database
+credentials; issued JWTs (bearer tokens) held by clients; the CI/CD pipeline's own integrity — the
+`GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and service container images it pulls
+(Phase 1 Milestone 2, `specs/002-ci-pipeline/`); threat-model records — projects, threat models,
+elements, threats and mitigations (Phase 1 Milestone 3, `specs/003-domain-schema/`), stored in the
+database and, since Phase 1 Milestone 5 (`specs/005-rest-api-v1/`), readable and writable by any
+authenticated account through `/api/v1`. The original threat entry records and Milestone 4's legacy
+links no longer exist: Milestone 5 removed them.
 **Assets (planned, not yet implemented)**: from Phase 3 — uploaded design documents, extracted
 text chunks and embeddings, LLM provider API keys, and the LLM outputs derived from them; from
 Phase 4 — read-only repository/IaC access tokens and cloned source code; from Phase 5 —
@@ -177,7 +190,10 @@ third-party OAuth tokens (Jira, Confluence, Google Docs, Linear, Azure DevOps) a
 webhook targets.
 
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
-(`src/app.js`) → PostgreSQL (`src/db.js`); browser → static assets (`public/`) → JSON API. The
+(`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
+`/api/users` and `/api/v1`, with its OpenAPI document), where everything but login sits behind bearer
+authentication. There is no browser UI until Phase 1 Milestone 6, which adds a web app that calls the
+same API. The
 app itself has a single trust tier: any holder of a valid JWT is fully trusted. Since Phase 1
 Milestone 2, a CI/CD boundary also exists: GitHub Actions workflows — including on pull requests
 from forks — run against this repository's contents with a scoped, read-by-default
@@ -192,13 +208,13 @@ webhooks.
 - **Spoofing**: Login (`POST /api/login`) is unauthenticated by design and has no rate
   limiting or lockout, so credential stuffing / brute force is possible. *Mitigated*: username
   enumeration via response timing is defended with a dummy bcrypt comparison
-  (`src/auth.js:DUMMY_HASH`). *Open risk*: no login rate limiting exists yet. *Planned*: from
+  (`apps/api/src/auth.ts:DUMMY_HASH`). *Open risk*: no login rate limiting exists yet. *Planned*: from
   Phase 3, indirect prompt injection from an ingested document could attempt to "spoof"
   instructions to the LLM (e.g. impersonate the system prompt); Principle VI's untrusted-input
   handling is the primary mitigation and MUST be verified before Phase 3 ships.
-- **Tampering**: All SQL is parameterized (`src/routes/threats.js`, `src/routes/users.js`,
-  `src/auth.js`) — no injection path found. Request bodies are size-capped at 100kb
-  (`src/app.js`). No CSRF exposure: auth is bearer-token-based, not cookie-based, so no
+- **Tampering**: All SQL is parameterized or built with Kysely (`apps/api/src/v1/`,
+  `apps/api/src/routes/users.ts`, `apps/api/src/auth.ts`) — no injection path found. Request bodies
+  are size-capped at 100kb (`apps/api/src/app.ts`). No CSRF exposure: auth is bearer-token-based, not cookie-based, so no
   same-origin form can ride a session. *Planned*: from Phase 3, AI-proposed edits are a new
   tampering-like surface if they could reach the model without review; mitigated by Principle
   VI's mandatory human-accept step. *Mitigated (Phase 1 Milestone 2)*: every third-party GitHub
@@ -218,20 +234,22 @@ webhooks.
   types, trust boundaries stay acyclic, an element with threats cannot be deleted from under
   them, `risk` is derived and cannot be set, and `origin` has no default and cannot change after
   creation, so a rule- or AI-generated threat can neither be stored labelled as manual nor be
-  relabelled later. *Mitigated (Phase 1 Milestone 4)*: a legacy link — the record tying an imported
-  threat to the legacy entry it was copied from — can only be inserted, or removed together with
-  its threat. Storage rejects any change to a link and any direct delete, so the evidence Milestone
-  5 needs to reconcile deleted legacy entries cannot be erased silently.
+  relabelled later. *Mitigated (Phase 1 Milestone 5)*: a threat created through `/api/v1` is always
+  `origin = 'manual'`: a request for `rule` or `ai` is rejected, and `origin` cannot be changed, so
+  a client cannot fake rule or AI provenance (Principle VI). Only server-side writers may record
+  those, and none exist before Phase 2. Milestone 4's legacy-link protection is retired with the
+  links: Milestone 5 removed the imported data, the link table and the legacy entry table.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
-  threat entry or a user — the JWT's `sub` is known per-request but never written to storage.
+  threat-model record or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app
   itself is meant to help track. *Planned*: plan.md Phase 6 closes this gap with a persisted
   audit log of who changed what; until Phase 6 ships, this remains an accepted, tracked risk.
-  *Clarified (Phase 1 Milestone 4)*: the "Imported" project's creator records who owns that
-  container (the earliest account), not who wrote each imported entry; the original tracker never
-  stored authorship, so the import cannot recover it and the risk is unchanged.
+  *Partially mitigated (Phase 1 Milestone 5)*: every successful `/api/v1` create, update and
+  delete writes one stdout line with the account id, action, record type and record id, never field
+  values, so an operator has a trace. It is not persisted or tamper-evident, so the risk stays open
+  until Phase 6's audit log.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
-  server-side only (`src/app.js` error handler); `x-powered-by` is disabled. Secrets are never
+  server-side only (`apps/api/src/app.ts` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
   *Open risk*: no security-header middleware (e.g. Helmet) is present. *Planned*: Phase 6 adds
   security headers explicitly; from Phase 3, a hosted (non-local) LLM provider is itself a
@@ -241,15 +259,21 @@ webhooks.
   credentials are throwaway, non-secret development defaults defined directly in the workflow, so
   pull requests from forks get identical, fully-functional results with nothing to leak. Every
   job triggers on `pull_request`, never `pull_request_target`, and every checkout sets
-  `persist-credentials: false`.
-- **Denial of Service**: JSON payloads are capped at 100kb; `GET /api/threats` has no
-  pagination (low risk at current expected scale). *Open risk*: no rate limiting on any route,
+  `persist-credentials: false`. *Mitigated (Phase 1 Milestone 5)*:
+  `/api/v1` errors are fixed messages that never echo a submitted or stored value or the database
+  driver's message and detail, and the write log carries ids only. Deleting the legacy data also
+  removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint.
+- **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
+  paginated, so a list returns every matching record (low risk at current expected scale, and
+  specs/005-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Open risk*: no rate limiting on any route,
   including login. *Planned*: Phase 6 adds rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
 - **Elevation of Privilege**: *Open risk, by design, currently unmitigated*: there is no role
-  model. Any authenticated user can create additional users (`POST /api/users`) and has full
-  CRUD over every threat entry. If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is
+  model. Any authenticated user can create additional users (`POST /api/users`) and, since Phase 1
+  Milestone 5, can read, change and delete every project, threat model, element, threat and
+  mitigation through `/api/v1`, including deleting a project with everything inside it. That
+  widening was called out in Milestone 5's spec and PR, and is accepted until Phase 6. If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is
   seeded and the app is unusable (fails closed, not open). *Planned*: plan.md Phase 6 introduces
   RBAC (viewer/contributor/reviewer/admin) and OIDC/SAML SSO to close this gap; until Phase 6
   ships, any change that widens what a plain authenticated user can do MUST be justified per
@@ -297,4 +321,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04
+**Version**: 1.5.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04
