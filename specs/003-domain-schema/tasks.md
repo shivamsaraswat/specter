@@ -59,7 +59,7 @@ must wait for the maintainer to start it. Don't start it on their behalf.
 **Purpose**: The `@specter/db` package skeleton and the `@specter/source` resolution wiring
 (research #1, #2).
 
-- [ ] T001 Create `packages/db/package.json`:
+- [X] T001 Create `packages/db/package.json`:
   - `"name": "@specter/db"`, `"private": true`, `"version": "0.1.0"`, `"type": "module"`,
     `"engines": { "node": ">=20" }`.
   - `"exports": { ".": { "@specter/source": "./src/index.ts", "types": "./dist/index.d.ts",
@@ -69,7 +69,7 @@ must wait for the maintainer to start it. Don't start it on their behalf.
     `lint` = `eslint .`, `test` = `vitest run`.
   - `dependencies`: `"pg": "^8.23.0"`. `devDependencies`: `"@types/pg": "^8.23.1"`. These are the
     same ranges as `apps/api/package.json`.
-- [ ] T002 [P] Create `packages/db/tsconfig.json`:
+- [X] T002 [P] Create `packages/db/tsconfig.json`:
   - It extends `../../tsconfig.base.json`, with `outDir: "dist"` and `rootDir: "."`.
   - It includes `["src", "test", "vitest.config.ts"]`, because ESLint's `projectService` needs
     every linted file to belong to a project.
@@ -77,10 +77,10 @@ must wait for the maintainer to start it. Don't start it on their behalf.
   Also create `packages/db/tsconfig.build.json`, which extends `./tsconfig.json` with
   `rootDir: "src"` and `declaration: true` and includes only `["src"]`. Mirror
   `apps/api/tsconfig*.json`.
-- [ ] T003 [P] Add `"customConditions": ["@specter/source"]` to `compilerOptions` in
+- [X] T003 [P] Add `"customConditions": ["@specter/source"]` to `compilerOptions` in
   `tsconfig.base.json`. It works under `moduleResolution: NodeNext` in TS 6.0.3 (research #2).
-- [ ] T004 [P] Add a `packages/*/test` line to `.dockerignore`.
-- [ ] T005 Run `pnpm install` from the root, then confirm that `pnpm-lock.yaml` has no line
+- [X] T004 [P] Add a `packages/*/test` line to `.dockerignore`.
+- [X] T005 Run `pnpm install` from the root, then confirm that `pnpm-lock.yaml` has no line
   matching `^---`, so it is still a single YAML document (the CI `lint` guard, `docs/ci.md`). This
   depends on T001.
 
@@ -94,12 +94,12 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
 
 **⚠ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T006 `git mv apps/api/db/001_threat_entries.sql packages/db/migrations/001_threat_entries.sql`
+- [X] T006 `git mv apps/api/db/001_threat_entries.sql packages/db/migrations/001_threat_entries.sql`
   and `git mv apps/api/db/002_users.sql packages/db/migrations/002_users.sql`.
   - The files must stay **byte-identical** with the **same names**. `schema_migrations` keys on the
     bare filename (FR-002).
   - Remove the now-empty `apps/api/db/`.
-- [ ] T007 Create `packages/db/src/migrate.ts` by moving the logic of `apps/api/src/migrate.ts`. It
+- [X] T007 Create `packages/db/src/migrate.ts` by moving the logic of `apps/api/src/migrate.ts`. It
   exports `async function migrate(pool: { connect(): Promise<PoolClient> }): Promise<void>`. Behavior
   must not change:
   - `const LOCK_ID = 727274`, with `pg_advisory_lock($1)` / `pg_advisory_unlock($1)` in `finally`.
@@ -114,7 +114,7 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
   The migrations directory is `fileURLToPath(new URL('../migrations/', import.meta.url))`, which
   works from both `src/` and `dist/`. Also create `packages/db/src/index.ts` with
   `export { migrate } from './migrate.js';`.
-- [ ] T008 Edit `apps/api/package.json`:
+- [X] T008 Edit `apps/api/package.json`:
   - Add `"@specter/db": "workspace:*"` to `dependencies`.
   - Change `dev` to `tsx watch --conditions=@specter/source src/server.ts` and `migrate` to
     `tsx --conditions=@specter/source src/migrate.ts`.
@@ -127,18 +127,18 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
 
   `apps/api/src/server.ts` and `apps/api/test/global-setup.ts` MUST NOT change. Run `pnpm
   install`, then repeat T005's lockfile check.
-- [ ] T009 [P] Edit `apps/api/vitest.config.ts`. Add `resolve: { alias: { '@specter/db':
+- [X] T009 [P] Edit `apps/api/vitest.config.ts`. Add `resolve: { alias: { '@specter/db':
   fileURLToPath(new URL('../../packages/db/src/index.ts', import.meta.url)) } }`, so both test
   files and `globalSetup` resolve the source. `ssr.resolve.conditions` doesn't reach `globalSetup`
   in Vitest 5 (research #2, plan.md note 4).
-- [ ] T010 [P] Create `packages/db/vitest.config.ts`:
+- [X] T010 [P] Create `packages/db/vitest.config.ts`:
   - `include: ['test/**/*.test.ts']`, `environment: 'node'`.
   - `globalSetup: ['./test/global-setup.ts']`, `setupFiles: ['./test/env.setup.ts']`.
 
   Also create `packages/db/test/env.setup.ts`, copied from `apps/api/test/env.setup.ts`. It loads
   the repo-root `.env.test` with `process.loadEnvFile` inside a `try`/`catch`, and the path is
   `../../../.env.test` from `packages/db/test/`.
-- [ ] T011 Create `packages/db/test/global-setup.ts`:
+- [X] T011 Create `packages/db/test/global-setup.ts`:
   1. Load `.env.test` as `apps/api/test/global-setup.ts` does.
   2. Open a `pg` `Client` to `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` as the
      maintenance connection.
@@ -149,7 +149,7 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
 
   This makes every run start from the current migration files (research #14). It depends on T007
   and T010.
-- [ ] T012 Create `packages/db/test/helpers.ts`:
+- [X] T012 Create `packages/db/test/helpers.ts`:
   - `TEST_DB = 'specter_db_test'`.
   - `pool()`: a lazily created `Pool` to `TEST_DB`, closed in `afterAll` by each test file.
   - `uid()`: a random suffix.
@@ -161,14 +161,14 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
     `origin: 'manual'` by default) and `createMitigation(threatId, overrides?)`. Each returns the
     inserted row, with unique names from `uid()`.
   - `count(table, where?)`, built only from a fixed allow-list of table names.
-- [ ] T013 Create `packages/db/test/migrate.test.ts` as relocation regression coverage. After
+- [X] T013 Create `packages/db/test/migrate.test.ts` as relocation regression coverage. After
   `globalSetup`:
   - `schema_migrations` contains `001_threat_entries.sql` and `002_users.sql`.
   - `to_regclass('threat_entries')` and `to_regclass('users')` are not null.
 
   Package `test` scripts fail when there are no test files, so this also keeps `pnpm test` green
   before US1.
-- [ ] T014 Edit `Dockerfile`:
+- [X] T014 Edit `Dockerfile`:
   - **Builder:** add `COPY packages/db/package.json ./packages/db/package.json` next to the
     `apps/api/package.json` manifest copy, before `pnpm install --frozen-lockfile`. Add `COPY
     packages ./packages` next to `COPY apps/api ./apps/api`. Replace the build with `RUN pnpm
@@ -177,10 +177,10 @@ isolates any packaging problem from schema work (plan.md, implementation note 1)
   - **Keep** `RUN pnpm --filter=@specter/api deploy --prod /prod/api`.
   - **Runtime stage:** delete `COPY --from=builder /prod/api/db ./db`. The migrations now ship
     inside `node_modules/@specter/db/migrations` (research #2).
-- [ ] T015 Checkpoint. Run `pnpm typecheck && pnpm lint && pnpm test` from the root. Every check
+- [X] T015 Checkpoint. Run `pnpm typecheck && pnpm lint && pnpm test` from the root. Every check
   must pass, and the `apps/api` tests must pass with `apps/api/test/` unmodified. This depends on
   T001–T014.
-- [ ] T016 **⚠ needs Docker.** Run `docker build -t specter:local .`, then `docker run --rm
+- [X] T016 **⚠ needs Docker.** Run `docker build -t specter:local .`, then `docker run --rm
   specter:local ls node_modules/@specter/db/migrations`. Expected: `001_threat_entries.sql` and
   `002_users.sql`, and no `test/` directory (`quickstart.md` §4).
 
@@ -200,7 +200,7 @@ failing file leaves nothing behind.
 
 ### Tests for User Story 1 ⚠️ (write first; run and see them fail)
 
-- [ ] T017 [US1] Create `packages/db/test/upgrade.test.ts`. Each scenario uses a scratch database
+- [X] T017 [US1] Create `packages/db/test/upgrade.test.ts`. Each scenario uses a scratch database
   `specter_upgrade_<uid>`, created and dropped (`WITH (FORCE)`) through a maintenance connection to
   `specter_db_test`. All scratch databases are dropped in `afterAll`. The tests run sequentially,
   in a `describe` block. **Don't pin exact column sets.** US2 adds columns and constraints later,
@@ -236,7 +236,7 @@ failing file leaves nothing behind.
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Create `packages/db/migrations/003_domain_functions.sql`. It contains two
+- [X] T018 [US1] Create `packages/db/migrations/003_domain_functions.sql`. It contains two
   statements, **in this order**. The atomicity test depends on the order.
   1. `CREATE FUNCTION set_timestamps() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
      NEW.created_at := OLD.created_at; NEW.updated_at := now(); RETURN NEW; END $$;`
@@ -244,7 +244,7 @@ failing file leaves nothing behind.
      WHEN 'data_flow' THEN 'flow' WHEN 'trust_boundary' THEN 'boundary' ELSE 'node' END $$;`
 
   Neither is attached to anything yet; US2 does that.
-- [ ] T019 [P] [US1] Create `packages/db/migrations/004_projects.sql` as a **shell**. `CREATE TABLE
+- [X] T019 [P] [US1] Create `packages/db/migrations/004_projects.sql` as a **shell**. `CREATE TABLE
   projects` with:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `name TEXT NOT NULL`
@@ -254,7 +254,7 @@ failing file leaves nothing behind.
   - `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`
 
   No foreign keys, checks or indexes yet.
-- [ ] T020 [P] [US1] Create `packages/db/migrations/005_threat_models.sql` as a **shell**. `CREATE
+- [X] T020 [P] [US1] Create `packages/db/migrations/005_threat_models.sql` as a **shell**. `CREATE
   TABLE threat_models` with:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `project_id UUID NOT NULL`
@@ -262,7 +262,7 @@ failing file leaves nothing behind.
   - `methodology TEXT NOT NULL DEFAULT 'STRIDE'`
   - `status TEXT NOT NULL DEFAULT 'draft'`
   - `created_at` and `updated_at` as in T019
-- [ ] T021 [P] [US1] Create `packages/db/migrations/006_elements.sql` as a **shell**. `CREATE TABLE
+- [X] T021 [P] [US1] Create `packages/db/migrations/006_elements.sql` as a **shell**. `CREATE TABLE
   elements` with:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `threat_model_id UUID NOT NULL`
@@ -274,7 +274,7 @@ failing file leaves nothing behind.
   - `target_element_id UUID`
   - `parent_boundary_id UUID`
   - `created_at` and `updated_at` as in T019
-- [ ] T022 [P] [US1] Create `packages/db/migrations/007_threats.sql` as a **shell**. `CREATE TABLE
+- [X] T022 [P] [US1] Create `packages/db/migrations/007_threats.sql` as a **shell**. `CREATE TABLE
   threats` with:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `threat_model_id UUID NOT NULL`
@@ -290,7 +290,7 @@ failing file leaves nothing behind.
   - `created_at` and `updated_at` as in T019
 
   `risk` is added in US2 (T036).
-- [ ] T023 [P] [US1] Create `packages/db/migrations/008_mitigations.sql` as a **shell**. `CREATE
+- [X] T023 [P] [US1] Create `packages/db/migrations/008_mitigations.sql` as a **shell**. `CREATE
   TABLE mitigations` with:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `threat_id UUID NOT NULL`
@@ -298,7 +298,7 @@ failing file leaves nothing behind.
   - `status TEXT NOT NULL DEFAULT 'proposed'`
   - `external_ref TEXT`
   - `created_at` and `updated_at` as in T019
-- [ ] T024 [US1] Run `pnpm --filter @specter/db test`. T017's four scenarios and T013 must pass.
+- [X] T024 [US1] Run `pnpm --filter @specter/db test`. T017's four scenarios and T013 must pass.
   Then run `pnpm --filter @specter/api test`, which must pass with `apps/api/test/` unmodified.
 
 **Checkpoint (validate only, NOT a merge point)**: The upgrade path is proven. US2 edits `003`–`008`
@@ -325,7 +325,7 @@ Each test file below follows the same pattern:
   that nothing changed.
 - Pair each one with a valid write that succeeds.
 
-- [ ] T025 [P] [US2] Create `packages/db/test/projects.test.ts`:
+- [X] T025 [P] [US2] Create `packages/db/test/projects.test.ts`:
   - **FR-005:**
     - `name` of `''`, `'   '` or 201 characters → `23514 projects_name_check`. Exactly 200
       characters is accepted.
@@ -336,7 +336,7 @@ Each test file below follows the same pattern:
     user still exists.
   - **FR-006a:** with `'Payments'` existing, inserting `'payments '` or `'PAYMENTS'`, or renaming
     another project to `' Payments'` → `23505 projects_name_key`. `'Payments 2'` is accepted.
-- [ ] T026 [P] [US2] Create `packages/db/test/threat-models.test.ts`:
+- [X] T026 [P] [US2] Create `packages/db/test/threat-models.test.ts`:
   - **FR-007:**
     - The name rule → `23514 threat_models_name_check` (same cases as T025).
     - A nonexistent `project_id` → `23503 threat_models_project_id_fkey`.
@@ -348,7 +348,7 @@ Each test file below follows the same pattern:
     - Omitting `status` stores `'draft'`.
     - `'done'` → `23514 threat_models_status_check`.
     - `draft → approved → in_review → draft` all succeed.
-- [ ] T027 [P] [US2] Create `packages/db/test/elements.test.ts`:
+- [X] T027 [P] [US2] Create `packages/db/test/elements.test.ts`:
   - **FR-011:**
     - The name rule → `23514 elements_name_check`.
     - Omitting `properties` stores `{}`.
@@ -394,7 +394,7 @@ Each test file below follows the same pattern:
       - Release both clients in `finally`.
   - **Edge case "Moving an element":** changing `threat_model_id` of an element nothing references
     → `23514 elements_threat_model_immutable`.
-- [ ] T028 [P] [US2] Create `packages/db/test/threats.test.ts`:
+- [X] T028 [P] [US2] Create `packages/db/test/threats.test.ts`:
   - **FR-019:**
     - A title of `'   '` → `23514 threats_title_check`.
     - A **90,000-character title and description are accepted**, because there is no storage
@@ -421,7 +421,7 @@ Each test file below follows the same pattern:
   - **FR-025:** omitting `origin` → `23502` with `column = 'origin'`. `'human'` →
     `23514 threats_origin_check`.
   - **Immutability:** changing `threat_model_id` → `23514 threats_threat_model_immutable`.
-- [ ] T029 [P] [US2] Create `packages/db/test/mitigations.test.ts`:
+- [X] T029 [P] [US2] Create `packages/db/test/mitigations.test.ts`:
   - **FR-026:**
     - A description of `'  '` or 10,001 characters → `23514 mitigations_description_check`.
       10,000 is accepted.
@@ -432,7 +432,7 @@ Each test file below follows the same pattern:
       `https://` URL → `23514 mitigations_external_ref_check`.
     - `'https://jira.example.com/X-1'`, `'HTTPS://Example.com/x'` and `NULL` are accepted.
   - **Immutability:** changing `threat_id` → `23514 mitigations_threat_immutable`.
-- [ ] T030 [P] [US2] Create `packages/db/test/deletion.test.ts`. The fixture is one threat model
+- [X] T030 [P] [US2] Create `packages/db/test/deletion.test.ts`. The fixture is one threat model
   with:
   - boundary B1 containing boundary B2;
   - process P inside B2, data store D inside B1, and external entity E;
@@ -455,7 +455,7 @@ Each test file below follows the same pattern:
       still exists, and the counts are unchanged.
     - After `UPDATE threats SET element_id = NULL` on those threats, the same deletes succeed.
   - **FR-029:** deleting a threat deletes its mitigations.
-- [ ] T031 [P] [US2] Create `packages/db/test/timestamps.test.ts`. For **each** of the five tables
+- [X] T031 [P] [US2] Create `packages/db/test/timestamps.test.ts`. For **each** of the five tables
   (FR-030):
   - After an insert, `created_at = updated_at`.
   - An update in a **separate** statement or transaction gives `updated_at >` its previous value
@@ -473,7 +473,7 @@ Each test file below follows the same pattern:
 Edit the US1 shells in place; they are unmerged, so this is allowed. Edits to one file are
 sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique key.
 
-- [ ] T032 [US2] Edit `packages/db/migrations/004_projects.sql`:
+- [X] T032 [US2] Edit `packages/db/migrations/004_projects.sql`:
   - **`name`:** `CONSTRAINT projects_name_check CHECK (length(btrim(name)) > 0 AND
     char_length(name) <= 200)`.
   - **`description`:** `CONSTRAINT projects_description_check CHECK (char_length(description) <=
@@ -484,7 +484,7 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
     `CREATE INDEX projects_created_by_idx ON projects (created_by);`.
   - **Trigger:** `CREATE TRIGGER projects_set_timestamps BEFORE UPDATE ON projects FOR EACH ROW
     EXECUTE FUNCTION set_timestamps();`.
-- [ ] T033 [US2] Edit `packages/db/migrations/005_threat_models.sql`:
+- [X] T033 [US2] Edit `packages/db/migrations/005_threat_models.sql`:
   - **`project_id`:** `CONSTRAINT threat_models_project_id_fkey REFERENCES projects(id) ON DELETE
     CASCADE`.
   - **`name`:** `CONSTRAINT threat_models_name_check CHECK (length(btrim(name)) > 0 AND
@@ -497,7 +497,7 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
     lower(btrim(name)));`. Its leading `project_id` also serves the cascade.
   - **Trigger:** `threat_models_set_timestamps`, `BEFORE UPDATE`, `EXECUTE FUNCTION
     set_timestamps()`.
-- [ ] T034 [US2] Edit `packages/db/migrations/006_elements.sql` (the declarative part):
+- [X] T034 [US2] Edit `packages/db/migrations/006_elements.sql` (the declarative part):
   - **`threat_model_id`:** `CONSTRAINT elements_threat_model_id_fkey REFERENCES threat_models(id)
     ON DELETE CASCADE`.
   - **`type`:** `CONSTRAINT elements_type_check CHECK (type IN ('external_entity', 'process',
@@ -527,7 +527,7 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
     - `CREATE INDEX elements_target_idx ON elements (threat_model_id, target_element_id);`
     - `CREATE INDEX elements_parent_idx ON elements (parent_boundary_id);`
   - **Trigger:** `elements_set_timestamps`, `BEFORE UPDATE`, `EXECUTE FUNCTION set_timestamps()`.
-- [ ] T035 [US2] Append the trigger part to `packages/db/migrations/006_elements.sql`. This is
+- [X] T035 [US2] Append the trigger part to `packages/db/migrations/006_elements.sql`. This is
   `CREATE FUNCTION elements_check() RETURNS trigger LANGUAGE plpgsql`, plus `CREATE TRIGGER
   elements_check BEFORE INSERT OR UPDATE ON elements FOR EACH ROW EXECUTE FUNCTION
   elements_check()`.
@@ -544,7 +544,10 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
      threat_model_id <> NEW.threat_model_id` → `elements_parent_is_boundary`.
   5. **Cycle check:** only on `UPDATE`, only when `NEW.type = 'trust_boundary'` and
      `NEW.parent_boundary_id IS DISTINCT FROM OLD.parent_boundary_id` and the new parent is not
-     null.
+     null **and is not the row itself**. That guard lets a boundary set as its own parent reach the
+     `elements_parent_not_self` CHECK, so that case reports the same constraint on insert and on
+     update. Without it, the trigger (which runs before CHECKs) would report
+     `elements_boundary_no_cycle` for the update.
      - First `PERFORM 1 FROM threat_models WHERE id = NEW.threat_model_id FOR NO KEY UPDATE`. This
        serializes re-parenting per model (research #8).
      - Then walk the ancestors with `WITH RECURSIVE anc(id) AS (SELECT NEW.parent_boundary_id
@@ -552,7 +555,7 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
        e.parent_boundary_id IS NOT NULL)`.
      - If `NEW.id` is in `anc` → `elements_boundary_no_cycle`.
   6. `RETURN NEW`.
-- [ ] T036 [US2] Edit `packages/db/migrations/007_threats.sql` (the declarative part):
+- [X] T036 [US2] Edit `packages/db/migrations/007_threats.sql` (the declarative part):
   - **`threat_model_id`:** `CONSTRAINT threats_threat_model_id_fkey REFERENCES threat_models(id) ON
     DELETE CASCADE`.
   - **`category`:** `CONSTRAINT threats_category_check CHECK (category IN ('Spoofing',
@@ -579,12 +582,12 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
   - **Index:** `CREATE INDEX threats_element_idx ON threats (threat_model_id, element_id);`.
 
   This depends on T034: `006`'s `elements_model_id_key` must exist when `007` applies.
-- [ ] T037 [US2] Append to `packages/db/migrations/007_threats.sql`:
+- [X] T037 [US2] Append to `packages/db/migrations/007_threats.sql`:
   - `CREATE FUNCTION threats_check()`, which on `UPDATE` with a changed `threat_model_id` raises
     `check_violation` with `CONSTRAINT = 'threats_threat_model_immutable'`.
   - The `threats_check` trigger: `BEFORE UPDATE`, for each row.
   - `threats_set_timestamps`: `BEFORE UPDATE`, `EXECUTE FUNCTION set_timestamps()`.
-- [ ] T038 [US2] Edit `packages/db/migrations/008_mitigations.sql`:
+- [X] T038 [US2] Edit `packages/db/migrations/008_mitigations.sql`:
   - **`threat_id`:** `CONSTRAINT mitigations_threat_id_fkey REFERENCES threats(id) ON DELETE
     CASCADE`.
   - **`description`:** `CONSTRAINT mitigations_description_check CHECK (length(btrim(description))
@@ -599,7 +602,7 @@ sequential. Apply order still matters: `007`'s composite FK needs `006`'s unique
     changed `threat_id` raises `check_violation` with `CONSTRAINT = 'mitigations_threat_immutable'`.
     Add its `BEFORE UPDATE` trigger `mitigations_check`, and `mitigations_set_timestamps` (`BEFORE
     UPDATE`, `EXECUTE FUNCTION set_timestamps()`).
-- [ ] T039 [US2] Run `pnpm --filter @specter/db test`. T013, T017 and T025–T031 must all pass. If a
+- [X] T039 [US2] Run `pnpm --filter @specter/db test`. T013, T017 and T025–T031 must all pass. If a
   test fails on a constraint *name*, fix the SQL, not the test: the names are contractual. Then
   run `pnpm test` from the root.
 
@@ -622,7 +625,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
 
 ### Package setup for User Story 3
 
-- [ ] T040 [P] [US3] Create `packages/core/package.json`:
+- [X] T040 [P] [US3] Create `packages/core/package.json`:
   - `"name": "@specter/core"`, `"private": true`, `"version": "0.1.0"`, `"type": "module"`,
     `"engines": { "node": ">=20" }`.
   - `"exports"`: the same as T001.
@@ -631,25 +634,25 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
     tsconfig.build.json && tsc --noEmit -p tsconfig.json`, where the first is the browser-safety
     gate (plan.md note 3); `lint` = `eslint .`; `test` = `vitest run`.
   - `dependencies`: `"zod": "^4.6.5"` **only**.
-- [ ] T041 [P] [US3] Create `packages/core/tsconfig.json`, which extends the base and includes
+- [X] T041 [P] [US3] Create `packages/core/tsconfig.json`, which extends the base and includes
   `["src", "test", "vitest.config.ts"]`. Create `packages/core/tsconfig.build.json` with:
   - `rootDir: "src"`, `outDir: "dist"`, `declaration: true`
   - `lib: ["ES2022", "DOM"]`, `types: []`
   - `include: ["src"]`
-- [ ] T042 [P] [US3] Create `packages/core/vitest.config.ts` with `include: ['test/**/*.test.ts']`
+- [X] T042 [P] [US3] Create `packages/core/vitest.config.ts` with `include: ['test/**/*.test.ts']`
   and `environment: 'node'`.
-- [ ] T043 [P] [US3] Edit `eslint.config.js`. Add a config block for `files:
+- [X] T043 [P] [US3] Edit `eslint.config.js`. Add a config block for `files:
   ['packages/core/src/**/*.ts']` with `'no-restricted-imports': ['error', { patterns: ['node:*'],
   paths: builtinModules.map(...) }]`, where `builtinModules` comes from `node:module`. This bans
   Node built-ins in `@specter/core` (research #16).
-- [ ] T044 [US3] Edit `Dockerfile`. Add `COPY packages/core/package.json
+- [X] T044 [US3] Edit `Dockerfile`. Add `COPY packages/core/package.json
   ./packages/core/package.json` to the manifest copies before `pnpm install --frozen-lockfile`.
   The lockfile now has a `packages/core` importer. Then run `pnpm install` and repeat T005's
   single-document lockfile check. This depends on T040.
 
 ### Tests for User Story 3 ⚠️ (write first; run and see them fail)
 
-- [ ] T045 [P] [US3] Create `packages/core/test/risk.test.ts`:
+- [X] T045 [P] [US3] Create `packages/core/test/risk.test.ts`:
   - `deriveRisk` returns, for all 9 pairs: `Low/Low=Low, Low/Medium=Low, Low/High=Medium,
     Medium/Low=Low, Medium/Medium=Medium, Medium/High=High, High/Low=Medium, High/Medium=High,
     High/High=Critical`.
@@ -657,7 +660,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
   - `RISK_LEVELS` deep-equals `['Low', 'Medium', 'High', 'Critical']`.
   - Every enumeration tuple deep-equals the values *and order* in contracts/core-api.md
     § Enumerations.
-- [ ] T046 [P] [US3] Create `packages/core/test/errors.test.ts` for `formatValidationError`. One
+- [X] T046 [P] [US3] Create `packages/core/test/errors.test.ts` for `formatValidationError`. One
   case per failure kind, each asserting that the output **contains the field name**:
   - unknown key `risk` → contains `unknown field "risk"`;
   - wrong type on `likelihood`;
@@ -670,7 +673,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
 
   Also assert: the output is a **single line** (no `\n`); issues are joined with `; `; and the
   rejected *value*, e.g. `'SECRET-VALUE'`, never appears in the output.
-- [ ] T047 [P] [US3] Create `packages/core/test/project.test.ts` and
+- [X] T047 [P] [US3] Create `packages/core/test/project.test.ts` and
   `packages/core/test/threat-model.test.ts`. Against `XCreateInput`, `XUpdateInput` and `XRecord`:
   - **Defaults:** project `description=''`; threat model `methodology='STRIDE'`, `status='draft'`.
   - **Text:** names are trimmed (`'  Payments  '` → `'Payments'`). `''` and `'   '` are rejected
@@ -681,7 +684,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
   - **Enums:** an out-of-range `status` or `methodology` is rejected.
   - **`ThreatModelUpdateInput`** rejects `project_id`, and `ThreatModelUpdateInput.parse({ name:
     'x' })` has **no** `status` key.
-- [ ] T048 [P] [US3] Create `packages/core/test/element.test.ts`:
+- [X] T048 [P] [US3] Create `packages/core/test/element.test.ts`:
   - **Defaults:** `properties={}`, `layout=null`, `source_element_id=null`,
     `target_element_id=null`, `parent_boundary_id=null`.
   - **Rejections:** `properties: []`, `layout: 1`, `type: 'actor'`, and a non-UUID
@@ -690,7 +693,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
   - **`ElementUpdateInput.parse({ name: 'x' })` has no `properties` key.** This is the `.partial()`
     default trap (research #15).
   - **`ElementUpdateInput`** rejects `threat_model_id` and accepts `type`.
-- [ ] T049 [P] [US3] Create `packages/core/test/threat.test.ts`:
+- [X] T049 [P] [US3] Create `packages/core/test/threat.test.ts`:
   - **US3 scenario 1:** a valid input passes, and `'  SQL injection  '` becomes `'SQL injection'`.
   - **`origin` is required**, with no default (FR-025), and each of the six categories is accepted.
   - **Rejected:** `risk`, `id`, `created_at`; a `title` of 201 code points; a `description` of
@@ -700,7 +703,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
     has no `description` key.
   - **`ThreatRecord`** accepts a 90,000-character `title` and `description` (FR-031), and requires
     `risk` ∈ `RISK_LEVELS`.
-- [ ] T050 [P] [US3] Create `packages/core/test/mitigation.test.ts`:
+- [X] T050 [P] [US3] Create `packages/core/test/mitigation.test.ts`:
   - **Defaults:** `status='proposed'`, `external_ref=null`.
   - **`external_ref`:** `'javascript:alert(1)'`, `'ftp://example.com/a'` and a 2,049-code-point URL
     are rejected. `'https://jira.example.com/X-1'`, `'HTTPS://Example.com/x'`,
@@ -712,7 +715,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
 
 ### Implementation for User Story 3
 
-- [ ] T051 [US3] Implement `packages/core/src/`, exactly per contracts/core-api.md:
+- [X] T051 [US3] Implement `packages/core/src/`, exactly per contracts/core-api.md:
   - **`enums.ts`:** the ten `as const` tuples in the contract's order (`METHODOLOGIES`,
     `THREAT_MODEL_STATUSES`, `ELEMENT_TYPES`, `STRIDE_CATEGORIES`, `LIKELIHOODS`, `IMPACTS`,
     `RISK_LEVELS`, `THREAT_STATUSES`, `THREAT_ORIGINS`, `MITIGATION_STATUSES`) and their union
@@ -738,7 +741,7 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
 
   Run `pnpm --filter @specter/core run test && pnpm --filter @specter/core run typecheck && pnpm
   --filter @specter/core run lint`. Everything must pass.
-- [ ] T052 [US3] Wire up the agreement test:
+- [X] T052 [US3] Wire up the agreement test:
   - Add `"@specter/core": "workspace:*"` to `devDependencies` in `packages/db/package.json`.
   - Add `resolve.alias` `'@specter/core'` → `packages/core/src/index.ts` in
     `packages/db/vitest.config.ts`.
@@ -756,6 +759,13 @@ named CHECKs (T032–T038). T040–T051 touch only new files and can run in para
     - assert set equality with the tuple.
   - **Risk.** Insert a threat for each of the 9 likelihood × impact pairs and assert `risk ===
     deriveRisk(l, i)`. Assert the set of stored `risk` values equals `new Set(RISK_LEVELS)`.
+  - **Length limits.** For `projects_name_check`, `projects_description_check`,
+    `threat_models_name_check`, `elements_name_check`, `threats_library_ref_check`,
+    `mitigations_description_check` and `mitigations_external_ref_check`, parse every `<= N` from
+    the constraint definition and assert that it equals `NAME_MAX_LENGTH`, `DESCRIPTION_MAX_LENGTH`
+    or `URL_MAX_LENGTH` respectively. Also assert that `threats_title_check` has no maximum and
+    that no `threats` constraint mentions `description` (legacy values must fit, FR-031). This
+    keeps the shared definitions from ever being looser than storage.
   - **Proof the check works.** A temporary sanity case in a scratch transaction: `ALTER TABLE …
     DROP CONSTRAINT … ADD CONSTRAINT …` with an extra value, then `ROLLBACK`. Use it to show the
     comparison detects drift (US3 scenario 3).
@@ -769,7 +779,7 @@ storage.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T053 [P] Edit `README.md`:
+- [X] T053 [P] Edit `README.md`:
   - State the **PostgreSQL 13+** requirement (research #6). CI and compose test on 16.
   - Add `packages/core` (the shared Zod definitions, browser-safe) and `packages/db` (migrations,
     runner, schema tests) to the repository-layout description.
@@ -777,9 +787,9 @@ storage.
 
   The `pnpm --filter @specter/api migrate` command is unchanged. No new environment variables, so
   the env table is unchanged.
-- [ ] T054 [P] Check whether `API.md` and `docs/ci.md` mention `apps/api/db` or the migrations
+- [X] T054 [P] Check whether `API.md` and `docs/ci.md` mention `apps/api/db` or the migrations
   path, and update them if so. If they don't, record "no change" in the PR description.
-- [ ] T055 [P] Amend `.specify/memory/constitution.md` (constitution Principle V and Quality
+- [X] T055 [P] Amend `.specify/memory/constitution.md` (constitution Principle V and Quality
   Gates: "MUST be updated in the same change if the feature adds an asset"; `/speckit-analyze`
   finding C1):
   - **Threat Model → "Assets (current)":** append "threat-model records: projects, threat
@@ -797,19 +807,19 @@ storage.
   - **Versioning:** bump `1.2.0 → 1.3.0`. This is MINOR (a new current asset and an expanded
     mitigation), matching how 1.2.0 was versioned. Rewrite the Sync Impact Report at the top to
     match, and set **Last Amended** to the commit date.
-- [ ] T056 Full CI equivalent from the root: `pnpm typecheck && pnpm lint && pnpm test`. All must
+- [X] T056 Full CI equivalent from the root: `pnpm typecheck && pnpm lint && pnpm test`. All must
   pass. Then confirm that `pnpm-lock.yaml` has no `^---` line.
-- [ ] T057 SC-001 guard: `git diff --stat main -- apps/api/test apps/api/src/server.ts` must print
+- [X] T057 SC-001 guard: `git diff --stat main -- apps/api/test apps/api/src/server.ts` must print
   nothing.
-- [ ] T058 Browser-safety spot-check (`quickstart.md` §5, FR-036). Add `process.env.X` to
+- [X] T058 Browser-safety spot-check (`quickstart.md` §5, FR-036). Add `process.env.X` to
   `packages/core/src/risk.ts`: `pnpm --filter @specter/core typecheck` must fail. Replace it with
   `import fs from 'node:fs'`: `pnpm lint` must fail on `no-restricted-imports`. Revert both changes.
-- [ ] T059 Traceability check (SC-003). Confirm that every row in the table under
+- [X] T059 Traceability check (SC-003). Confirm that every row in the table under
   "Requirement → test traceability" below has a passing test at the stated file, and update the
   table if a test moved.
-- [ ] T060 **⚠ needs Docker.** Run `docker build -t specter:local .` and `quickstart.md` §4: the
+- [X] T060 **⚠ needs Docker.** Run `docker build -t specter:local .` and `quickstart.md` §4: the
   image contains `node_modules/@specter/db/migrations/001_…`–`008_…` and no top-level `db/`.
-- [ ] T061 **⚠ needs Docker · ⚠ confirm before `docker compose down -v`, which deletes the local
+- [X] T061 **⚠ needs Docker · ⚠ confirm before `docker compose down -v`, which deletes the local
   `pgdata` volume.** Then run `quickstart.md` §2 (the upgrade from the pre-milestone commit, with an
   unchanged `md5` of `threat_entries` and no re-applied `001`/`002`) and §3 (manual rule
   spot-checks). This proves US1 on the real compose stack.

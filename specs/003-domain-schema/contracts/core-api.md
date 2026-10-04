@@ -44,6 +44,10 @@ The agreement test compares each tuple **as a set** with the matching storage `C
 `RISK_LEVELS` is checked against the generated `threats.risk` column instead (see
 [db-errors.md](./db-errors.md) and research #14).
 
+The same test also reads every storage length limit back out of its CHECK definition and asserts
+that it equals the matching constant under [Field limits](#field-limits), and that threat title and
+description have no storage maximum. So a shared schema is never looser than storage.
+
 ## Risk derivation (FR-023, FR-035)
 
 ```ts
@@ -97,7 +101,9 @@ for elements, threats and mitigations ([db-errors.md](./db-errors.md)), but deli
 - **Text.** Names, titles and mitigation descriptions are trimmed and must be non-empty. Every
   text field is held to the limits above.
 - **`properties`** must be a JSON object, and **`layout`** must be a JSON object or `null`.
-- **`external_ref`**: an absolute `http`/`https` URL or `null` (research #17).
+- **`external_ref`**: an absolute `http`/`https` URL, with no whitespace and at most 2,048 code
+  points, or `null` (research #17). The whitespace rule exists because the WHATWG URL parser Zod
+  uses accepts a space in a path, which the storage CHECK rejects.
 - **Element `type`.** Only the allowed values are checked here. *Which* type changes are allowed
   (FR-012a), and every cross-row rule (flow endpoints, same model, cycles, uniqueness), depends on
   stored data, so storage enforces them ([db-errors.md](./db-errors.md)).
@@ -122,6 +128,11 @@ of failure. The message never includes the rejected *value*, so user input isn't
 
 `XRecord` schemas follow storage, not input limits: `ThreatRecord.title` and `.description` have
 **no maximum**, so legacy threats imported by Milestone 4 parse (FR-031, FR-032).
+
+Record timestamps (`created_at`, `updated_at`) are ISO 8601 strings with an offset. A `Date`, which
+is what the database driver returns, is also accepted and normalised to that string. So a row can
+be parsed straight from the driver or from an API response, and the parsed value is always the
+string.
 
 ## Not in this contract
 

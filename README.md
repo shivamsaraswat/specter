@@ -35,7 +35,7 @@ Data lives in the `pgdata` volume. `docker compose down -v` wipes it.
 
 ## Run without Docker
 
-Requires Node 20+, pnpm, and a reachable Postgres.
+Requires Node 20+, pnpm, and a reachable PostgreSQL **13 or newer** (CI and `docker compose` use 16).
 
 ```sh
 pnpm install
@@ -45,7 +45,7 @@ pnpm --filter @specter/api start
 
 The app does not read `.env` itself — export the variables (e.g. `set -a; source .env; set +a`) or set them in your process manager.
 
-On startup the app applies any pending SQL files from `apps/api/db/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `pnpm --filter @specter/api migrate` runs only the migrations. `pnpm run test` runs the whole workspace's test suite.
+On startup the app applies any pending SQL files from `packages/db/migrations/` (tracked in a `schema_migrations` table) and creates/updates the admin user. `pnpm --filter @specter/api migrate` runs only the migrations. `pnpm run test` runs the whole workspace's test suite.
 
 If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
 
@@ -58,8 +58,18 @@ If you're used to this project's pre-Phase-1 npm commands, here's the mapping:
 
 ## Development (contributing)
 
-This is a pnpm workspace (`apps/api` is the only populated package today; more are added in
-later phases). Requires Node.js 20+. Running with an unsupported Node version fails fast with a
+This is a pnpm workspace. The packages are:
+
+| Package | What it holds |
+| --- | --- |
+| `apps/api` | The Express API |
+| `packages/db` | The forward-only SQL migrations (the threat-model schema), the migration runner, and the tests that check the schema's integrity rules against a real Postgres |
+| `packages/core` | The shared definitions of projects, threat models, elements, threats and mitigations (Zod schemas, value lists, risk scoring). It has no Node.js dependencies, so the web app can use it too |
+
+Workspace packages are read as TypeScript source by the type checker, the linter, the tests and
+`tsx`, and as compiled JavaScript inside the Docker image. Running this takes no extra build step.
+
+Requires Node.js 20+. Running with an unsupported Node version fails fast with a
 clear engine-mismatch error before anything else runs.
 
 ```sh

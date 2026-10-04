@@ -1,22 +1,26 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.0 → 1.2.0
-Rationale: Phase 1 / Milestone 2 (specs/002-ci-pipeline) lands the CI pipeline that Principle II
-  and the Quality Gates section previously described as pending ("once Phase 1's CI lands"). This
-  is a MINOR bump: it materially expands existing guidance (rewording two sections from
-  future-tense to present-tense, with concrete tool names and thresholds) and adds new Threat
-  Model content for a trust boundary that now exists (the CI/CD supply chain), with no
-  backward-incompatible removal of any existing rule.
+Version change: 1.2.0 → 1.3.0
+Rationale: Phase 1 / Milestone 3 (specs/003-domain-schema) adds the threat-model domain schema:
+  projects, threat models, elements, threats and mitigations. Principle V requires the Threat
+  Model to be updated in the same change when a feature adds an asset, so this records those
+  records as a new asset and the database-level integrity rules as a Tampering mitigation. This is
+  a MINOR bump: it adds a current asset and materially expands an existing mitigation, with no
+  backward-incompatible removal of any rule.
 Modified principles:
-  - II. Test-First Development — "Once Phase 1's CI lands, every PR MUST pass..." reworded to
-    present tense: the four required checks (typecheck, lint, test against a real Postgres
-    service container, Docker build) are enforced by a branch ruleset with no bypass actors;
-    CodeQL (security-and-quality) and Dependabot are enabled and informational/non-blocking in
-    this milestone
+  - I. Secure Coding by Default — "Kysely once Phase 1's monorepo lands" corrected to Phase 1
+    Milestone 5, the first milestone with application queries against the domain tables. The rule
+    itself is unchanged: parameterized `pg` still satisfies it.
+  - IV. Maintainability & Observability — the same Kysely timing correction.
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
+Threat Model changes:
+  - Assets (current): threat-model records (projects, threat models, elements, threats,
+    mitigations). Not reachable over the network until Milestone 5.
+  - Tampering: new "Mitigated (Phase 1 Milestone 3)" note: storage itself enforces the integrity
+    of those records, so no future writer can store a structurally inconsistent model.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this command is the
   constitution file only; dependent templates read it at runtime per the scope guard)
@@ -28,7 +32,8 @@ Templates requiring follow-up: none checked in this run (scope of this command i
 
 ### I. Secure Coding by Default (NON-NEGOTIABLE)
 All database access MUST use parameterized queries or a typed query builder (currently `pg`
-with parameterized SQL; Kysely once Phase 1's monorepo lands) — string-concatenated or
+with parameterized SQL; Kysely from Phase 1 Milestone 5, when the first application queries against
+the domain tables land) — string-concatenated or
 template-interpolated SQL is forbidden everywhere. All request input (body, params, query)
 MUST be validated at the boundary before use — reject unknown shapes, enforce type/length/enum
 constraints (inline today, as in `src/routes/threats.js` and `src/routes/users.js`; via the
@@ -93,7 +98,7 @@ today) — never from local config files read at runtime. Logs MUST go to stdout
 file-based logging), and MUST NOT contain secrets, password hashes, full JWTs, or raw LLM
 provider payloads (prompt/response logging is opt-in and off by default, per plan.md's AI
 security hardening). Schema changes MUST be forward-only SQL files, tracked via the existing
-`schema_migrations` mechanism (or its Kysely-typed equivalent from Phase 1) — never edited in
+`schema_migrations` mechanism (or its Kysely-typed equivalent from Phase 1 Milestone 5) — never edited in
 place once merged. Every environment variable the app reads MUST be documented in `README.md`'s
 environment variable table. Per plan.md's cloud-friendly rules: `/health` MUST return 200 with
 no auth and no DB dependency; the API and worker processes MUST remain stateless and
@@ -155,7 +160,10 @@ they ship.
 **Assets (current)**: threat entry records; user credentials (`users.password_hash`); the JWT
 signing secret; database credentials; issued JWTs (bearer tokens) held by clients; the CI/CD
 pipeline's own integrity — the `GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and
-service container images it pulls (Phase 1 Milestone 2, `specs/002-ci-pipeline/`).
+service container images it pulls (Phase 1 Milestone 2, `specs/002-ci-pipeline/`); threat-model
+records — projects, threat models, elements, threats and mitigations (Phase 1 Milestone 3,
+`specs/003-domain-schema/`), stored in the database but not reachable over the network until
+Phase 1 Milestone 5's API.
 **Assets (planned, not yet implemented)**: from Phase 3 — uploaded design documents, extracted
 text chunks and embeddings, LLM provider API keys, and the LLM outputs derived from them; from
 Phase 4 — read-only repository/IaC access tokens and cloned source code; from Phase 5 —
@@ -197,7 +205,13 @@ webhooks.
   as zero dependencies, silently disabling Dependabot alerts
   ([dependabot-core#15904](https://github.com/dependabot/dependabot-core/issues/15904)). The cost
   is that pnpm no longer verifies the running pnpm version against `packageManager` itself;
-  Corepack and CI's own pinned install compensate. Revert once #15904 ships.
+  Corepack and CI's own pinned install compensate. Revert once #15904 ships. *Mitigated (Phase 1
+  Milestone 3)*: the database itself enforces the integrity of threat-model records, so no writer
+  — the API, the rule engine, AI drafts — can store a structurally inconsistent model: references
+  stay inside one threat model, data-flow endpoints and boundary parents have the right element
+  types, trust boundaries stay acyclic, an element with threats cannot be deleted from under
+  them, `risk` is derived and cannot be set, and `origin` has no default so a rule- or
+  AI-generated threat cannot be stored labelled as manual.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat entry or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app
@@ -270,4 +284,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.2.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-28
+**Version**: 1.3.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04

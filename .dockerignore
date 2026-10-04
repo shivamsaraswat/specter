@@ -10,3 +10,4 @@ Dockerfile
 dist
 coverage
 apps/api/test
+packages/*/test

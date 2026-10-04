@@ -243,7 +243,9 @@ Rules that only look at the row itself are plain named `CHECK`s:
 create a cycle:
 - A newly inserted element has no descendants.
 - Non-boundaries can't be parents.
-- A row being its own parent is covered by a `CHECK`.
+- A row being its own parent is covered by a `CHECK`. The trigger skips that case on purpose, so
+  a self-parent reports `elements_parent_not_self` on insert and on update. Triggers run before
+  CHECK constraints, so without the skip the update would report `elements_boundary_no_cycle`.
 
 In that case the trigger first takes `SELECT 1 FROM threat_models WHERE id = NEW.threat_model_id
 FOR NO KEY UPDATE`. It then walks the ancestor chain of the new parent with a recursive CTE and
@@ -300,9 +302,12 @@ Verified on PGlite:
 | External entity with no threats on its flows | Succeeded; the flow cascaded |
 
 **Alternatives considered**:
-- **`RESTRICT`.** It is checked immediately, when the referenced row is deleted. It happened to pass
-  the whole-model test on PGlite, because the cascades fired in a lucky order, but that order is
-  not guaranteed. Rejected as fragile.
+- **`RESTRICT`.** It is checked immediately, when the referenced row is deleted, rather than at the
+  end of the statement. The whole-model delete tests also pass with `RESTRICT`, on PGlite and
+  on PostgreSQL 16 (checked during implementation by swapping it in), so the tests can't tell the
+  two apart. `NO ACTION` stays because its end-of-statement check doesn't depend on the order in
+  which Postgres fires the cascades, whereas `RESTRICT`'s outcome does. That ordering argument is
+  reasoning about Postgres internals, not something a test here demonstrates.
 - **A trigger implementing the block.** It would duplicate what the FK already does. Rejected.
 
 ## 10. Risk: a stored generated column
