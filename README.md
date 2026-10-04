@@ -4,7 +4,7 @@ An open-source, self-hosted threat modeling platform, in early development.
 
 The goal: give Specter the context of a project (design docs, a repository, Jira/Confluence) and get a threat model back, or build one by hand on a data-flow diagram. Both paths produce the same threat model, AI suggestions are always drafts with citations that a human accepts or rejects, and you bring your own LLM, including a fully local one, so nothing has to leave your network.
 
-> **Current status: Phase 1, in progress.** Today Specter is an API for STRIDE threat models: projects, threat models, diagram elements, threats and mitigations (Node.js + Express, PostgreSQL), already deployable to AWS. There is no browser UI until the React app lands (Phase 1 Milestone 6). Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
+> **Current status: Phase 1, in progress.** Today Specter is an API and a small web app for STRIDE threat models: sign in, manage projects and threat models, and create, edit and delete threats and their mitigations (Node.js + Express, React, PostgreSQL), already deployable to AWS. The diagram editor and rule-generated threats are Phase 2. Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
 
 ## Roadmap
 
@@ -27,7 +27,9 @@ Built one phase at a time; each phase ends with something usable.
 docker compose up --build
 ```
 
-There is no browser UI yet, so use the API. `GET /health` returns `200 {"status":"ok"}`, and [API.md](API.md) walks through logging in with `admin` / `admin` (the compose defaults) and building a threat model with curl.
+Then open <http://localhost:3000> and sign in with `admin` / `admin` (the compose defaults). Create a project, add a threat model to it, and add threats and mitigations. You stay signed in until you log out (or 30 days pass, or 7 days go by without use); **Sign out everywhere** ends every session of your account.
+
+The API is there too: `GET /health` returns `200 {"status":"ok"}`, and [API.md](API.md) walks through logging in and building a threat model with curl.
 
 Override the defaults by exporting variables before `docker compose up` (or putting them in a `.env` file next to `docker-compose.yml`): `DB_PASSWORD`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT`.
 
@@ -64,7 +66,8 @@ This is a pnpm workspace. The packages are:
 
 | Package | What it holds |
 | --- | --- |
-| `apps/api` | The Express API |
+| `apps/api` | The Express API. It also serves the built web app, and holds the browser-session endpoints |
+| `apps/web` | The React web app: sign-in, projects, threat models, threats and mitigations. Built with Vite, tested with Vitest and Playwright |
 | `packages/db` | The forward-only SQL migrations (the threat-model schema), the migration runner, and the tests that check the schema's integrity rules against a real Postgres |
 | `packages/core` | The shared definitions of projects, threat models, elements, threats and mitigations (Zod schemas, value lists, risk scoring). It has no Node.js dependencies, so the web app can use it too |
 
@@ -81,6 +84,22 @@ pnpm install
 pnpm run typecheck
 pnpm run lint
 pnpm run test
+```
+
+To run the web app while you work on it, start the API and Vite in two terminals. Vite proxies `/api` to the API, and serves the app on <http://localhost:5173>:
+
+```sh
+pnpm --filter @specter/api dev
+pnpm --filter @specter/web dev
+```
+
+The Vite dev server does not apply the content security policy. That is only checked against the built app, by the browser tests:
+
+```sh
+pnpm run build
+pnpm --filter @specter/web verify:build    # the built page has no inline code or data: URIs
+pnpm --filter @specter/web exec playwright install chromium    # once
+pnpm run test:e2e                          # Playwright, against the built app and a real database
 ```
 
 Each of the four `pnpm run` commands above fans out to every workspace package
@@ -113,10 +132,22 @@ configured.
 | `DB_NAME` | yes | — | Database name |
 | `DB_USER` | yes | — | Database user |
 | `DB_PASSWORD` | yes | — | Database password |
+| `DB_SECRET_ID` | no | — | Id of an AWS Secrets Manager secret to read at startup, using the instance or task role. Its JSON keys override the matching environment values: `host`, `port`, `dbname`, `username`, `password`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. Unset, the app reads the environment only |
 | `JWT_SECRET` | yes | — | Secret for signing login tokens; app refuses to start without it |
-| `JWT_EXPIRES_IN` | no | `8h` | Token lifetime |
+| `JWT_EXPIRES_IN` | no | `8h` | Lifetime of a token from `POST /api/login` (API clients). Browser sessions use `SESSION_MAX_LIFETIME` instead |
 | `ADMIN_USERNAME` | no | — | Login user, created/updated on startup |
-| `ADMIN_PASSWORD` | no | — | Password for that user (re-applied on every startup) |
+| `ADMIN_PASSWORD` | no | — | Password for that user. Changing it ends that user's browser sessions; restarting with the same password does not |
+| `SESSION_MAX_LIFETIME` | no | `30d` | The longest a browser session lasts from sign-in. Format: a whole number and one of `s`, `m`, `h`, `d` |
+| `SESSION_IDLE_TIMEOUT` | no | `7d` | A browser session unused for this long ends. Same format; must not exceed `SESSION_MAX_LIFETIME` |
+| `SIGN_IN_FAILURES_PER_ACCOUNT` | no | `5` | Failed sign-ins for one username from one address before that pair is slowed down |
+| `SIGN_IN_FAILURES_PER_ADDRESS` | no | `50` | Failed sign-ins from one address (any usernames) before it is slowed down. An IPv6 address counts as its /64 |
+| `SIGN_IN_BASE_WAIT` | no | `30s` | The first wait after the threshold; it doubles with each further failure |
+| `SIGN_IN_MAX_WAIT` | no | `15m` | The longest wait, and how long failures are remembered |
+| `TRUST_PROXY` | no | — (trust none) | Behind a load balancer or reverse proxy, set this, or sign-in throttling sees every client as the proxy. `1` trusts one proxy hop (a single ALB); a comma-separated list of addresses or CIDR ranges also works. `true` is refused |
+
+### Behind a load balancer or reverse proxy
+
+Set `TRUST_PROXY` (`1` behind one ALB). Without it every client appears to come from the proxy's address, so the per-address sign-in limit applies to everyone at once, and the session cookie may miss `Secure`. Browser sign-in also checks that the request's `Origin` matches the host the app sees, so the proxy must forward the original host: keep `Host` (nginx: `proxy_set_header Host $host;`) or send `X-Forwarded-Host`, which is honoured only from a trusted proxy. A proxy that rewrites `Host` and sends nothing else makes every sign-in a 403. The AWS ALB keeps `Host` and needs nothing extra. Terminate TLS at the proxy: the session cookie is marked `Secure` when the page was loaded over HTTPS.
 
 If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can log in. Once logged in, any user can create more users (`POST /api/users`). There are no roles: any logged-in user can also read, change and delete every project and everything in it. There is no user edit or delete.
 
@@ -125,7 +156,8 @@ If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
 | GET | `/health` | no | Liveness; does not touch the DB |
-| POST | `/api/login` | no | `{username, password}` → `{token}` |
+| POST | `/api/login` | no | `{username, password}` → `{token}` (for API clients). Failed attempts are throttled: `429` |
+| POST | `/api/session` and `/api/session/{refresh,logout,logout-all}` | cookie | The browser's sign-in and session. Used by the web app, not meant for scripts. See [API.md](API.md) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
 | | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list (27 operations) |
 | GET | `/api/v1/openapi.json` | Bearer | The OpenAPI 3.1 document for v1 |

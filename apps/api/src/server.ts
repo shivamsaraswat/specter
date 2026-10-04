@@ -1,7 +1,13 @@
-import config from './config.js';
-import app from './app.js';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import config, { parseSessionConfig } from './config.js';
+import { createApp } from './app.js';
 import migrate from './migrate.js';
 import { seedAdminUser } from './auth.js';
+
+// The built web app, resolved relative to this module (never an absolute path, Principle IV). From
+// apps/api/src and from apps/api/dist this reaches apps/web/dist, and the image keeps that layout.
+const WEB_ROOT = fileURLToPath(new URL('../../web/dist/', import.meta.url));
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -30,9 +36,23 @@ async function main(): Promise<void> {
     process.exit(1);
     return;
   }
+  try {
+    parseSessionConfig(process.env);
+  } catch {
+    // The error message names the variable but never its value, yet a fixed line is still the
+    // safest thing to log here, like the JWT_SECRET check above.
+    console.error('Startup failed: invalid session or sign-in configuration');
+    process.exit(1);
+    return;
+  }
   await initDatabase();
 
-  const server = app.listen(config.port, () => {
+  // Without a build, such as the API run alone in development, only the API is served. The line is
+  // fixed on purpose: it never includes the path.
+  const hasWeb = fs.existsSync(`${WEB_ROOT}index.html`);
+  if (!hasWeb) console.warn('UI not built (apps/web/dist missing); serving the API only');
+
+  const server = createApp({ trustProxy: config.trustProxy, webRoot: hasWeb ? WEB_ROOT : undefined }).listen(config.port, () => {
     console.log(`Listening on port ${config.port}`);
   });
 

@@ -8,3 +8,9 @@ deployment.md
 dist/
 .pnpm-store/
 coverage/
+# Playwright output. A failure's trace.zip records network traffic, including session cookies and bearer tokens.
+**/test-results/
+**/playwright-report/
+
+# The roadmap stays local and is never committed.
+/plan.md

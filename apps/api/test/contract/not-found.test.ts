@@ -2,8 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../../src/app.js';
 import { login, startTestServer, type TestServer } from './helpers.js';
 
-// Milestone 5 removes the legacy endpoints and the static UI (FR-018). Every path the app doesn't
-// serve now gets the same JSON 404, inside or outside /api (FR-012).
+// Paths the app doesn't serve get the same JSON 404 (M5 FR-012). This runs against the API-only app,
+// so the page and file paths outside /api (/, /index.html, /app.js, /style.css, /nope) are covered in
+// web-serving.test.ts: Milestone 6 serves the UI there when a web root is set, and answers a missing
+// file with this same 404.
 describe('paths the app does not serve', () => {
   let server: TestServer;
   let token: string;
@@ -18,11 +20,6 @@ describe('paths the app does not serve', () => {
   });
 
   const unserved: [method: string, path: string][] = [
-    ['GET', '/'],
-    ['GET', '/index.html'],
-    ['GET', '/app.js'],
-    ['GET', '/style.css'],
-    ['GET', '/nope'],
     ['GET', '/api/threats'],
     ['POST', '/api/threats'],
     ['PUT', '/api/threats/1'],

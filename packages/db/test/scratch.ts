@@ -23,6 +23,10 @@ export async function scratchDatabase(): Promise<pg.Pool> {
   await pool().query(`CREATE DATABASE ${escapeIdentifier(name)}`);
   scratchNames.push(name);
   const p = new pg.Pool(connectionSettings(name));
+  // The database is dropped with FORCE at the end, which terminates any connection the server is still
+  // closing (57P01). That is expected here, and without a listener the pool turns it into an unhandled
+  // error that fails the whole run even though every test passed.
+  p.on('error', () => undefined);
   scratchPools.push(p);
   return p;
 }

@@ -35,6 +35,9 @@ export default async function setup(): Promise<() => Promise<void>> {
     await config.load();
     await migrate();
     await seedAdminUser();
+    // Every test signs in from 127.0.0.1, so failures counted in an earlier local run would add up
+    // against the sign-in limits. Starting from an empty table keeps re-runs independent.
+    await db.query('DELETE FROM sign_in_throttle');
     // The database's own clock, so this agrees with the created_at that storage assigns.
     const { rows } = await db.query<{ now: Date }>('SELECT now() AS now');
     startedAt = rows[0]?.now ?? new Date();
@@ -46,12 +49,23 @@ export default async function setup(): Promise<() => Promise<void>> {
 
   // The v1 tests create projects and never delete them, and these tests share a database with
   // `docker compose up` locally. Deleting every project created during the run (a delete cascades
-  // to what is inside it) keeps a developer's project list free of test data. Nothing here touches
-  // users or anything created before the run started.
+  // to what is inside it) keeps a developer's project list free of test data. The session tests
+  // create their own accounts (named m6-test-*, so no test ends `admin`'s sessions): those, and the
+  // sessions and projects they own, go too. Nothing here touches any other user, or anything
+  // created before the run started, except what a crashed earlier run left under an m6-test-* account.
   return async function teardown(): Promise<void> {
     const pool = new pg.Pool(config.db);
     try {
+      await pool.query('DELETE FROM browser_sessions WHERE created_at >= $1', [startedAt]);
+      // Failed sign-ins from the tests are counted against 127.0.0.1 and the documentation addresses.
+      await pool.query('DELETE FROM sign_in_throttle');
       await pool.query('DELETE FROM projects WHERE created_at >= $1', [startedAt]);
+      // projects.created_by is ON DELETE RESTRICT, so a project left by a crashed run (it predates
+      // startedAt, so the delete above misses it) would make the user delete below throw.
+      await pool.query(
+        `DELETE FROM projects WHERE created_by IN (SELECT id FROM users WHERE username LIKE 'm6-test-%')`,
+      );
+      await pool.query(`DELETE FROM users WHERE username LIKE 'm6-test-%'`);
     } finally {
       await pool.end();
     }

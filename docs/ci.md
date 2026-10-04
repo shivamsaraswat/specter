@@ -10,7 +10,7 @@ every repository setting that isn't a file in this repo.
 | --- | --- | --- | --- |
 | `typecheck` | `pnpm typecheck` (`tsc --noEmit` in every package) | `pnpm typecheck` | 10 min |
 | `lint` | `pnpm lint` (ESLint in every package), then the [lockfile-format guard](#lockfile-format) | `pnpm lint` | 10 min |
-| `test` | `pnpm test` (Vitest in every package; a `globalSetup` migrates the database and seeds the admin user) against a real `postgres:16-alpine` service container | `docker compose up -d db && pnpm test` | 15 min |
+| `test` | `pnpm test` (Vitest in every package; a `globalSetup` migrates the database and seeds the admin user) against a real `postgres:16-alpine` service container, then `pnpm build`, the built-output check (`pnpm --filter @specter/web verify:build`: no inline script or style, no `data:` URIs), and the Playwright browser tests against the built app (`pnpm test:e2e`, Chromium) | `docker compose up -d db && pnpm test && pnpm build && pnpm --filter @specter/web verify:build && pnpm test:e2e` (once: `pnpm --filter @specter/web exec playwright install chromium`) | 25 min |
 | `docker-build` | `docker build --pull .` (never pushed anywhere) | `docker build .` | 15 min |
 
 All four run on every pull request to `main`, on every push to `main`, and on demand

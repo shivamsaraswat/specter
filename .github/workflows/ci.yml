@@ -46,7 +46,7 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
@@ -79,6 +79,16 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-workspace
       - run: pnpm test
+      # The browser tests run inside this required job, so they gate merges without a change to the
+      # ruleset. They need the *built* app: only it serves the UI and applies the CSP.
+      - name: Build
+        run: pnpm build
+      - name: Check the built UI for inline code and data URIs
+        run: pnpm --filter @specter/web verify:build
+      - name: Install Chromium
+        run: pnpm --filter @specter/web exec playwright install --with-deps chromium
+      - name: Browser tests
+        run: pnpm test:e2e
 
   docker-build:
     name: docker-build

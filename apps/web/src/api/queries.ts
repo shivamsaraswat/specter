@@ -1,0 +1,225 @@
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  ElementRecord,
+  MitigationRecord,
+  ProjectRecord,
+  ThreatModelRecord,
+  ThreatRecord,
+  type MitigationCreateInput,
+  type MitigationUpdateInput,
+  type ProjectCreateInput,
+  type ProjectUpdateInput,
+  type ThreatCreateInput,
+  type ThreatModelCreateInput,
+  type ThreatModelUpdateInput,
+  type ThreatUpdateInput,
+} from '@specter/core';
+import { apiDelete, apiGet, apiPatch, apiPost } from './client.js';
+import { isGone } from './errors.js';
+
+// One query per v1 read, and one mutation per write (research #15). A write refetches what it
+// changed only after the server has confirmed it: nothing here is optimistic (spec FR-016). A write
+// that finds its record gone (404) refetches too, so the screen shows the server's state.
+
+export const keys = {
+  projects: ['projects'] as const,
+  project: (id: string) => ['project', id] as const,
+  threatModels: (projectId: string) => ['threat-models', projectId] as const,
+  threatModel: (id: string) => ['threat-model', id] as const,
+  elements: (threatModelId: string) => ['elements', threatModelId] as const,
+  threats: (threatModelId: string) => ['threats', threatModelId] as const,
+  mitigations: (threatModelId: string) => ['mitigations', threatModelId] as const,
+};
+
+// Runs the given invalidations when a write fails because the record no longer exists.
+function refetchWhenGone(client: QueryClient, invalidate: () => Promise<unknown>) {
+  return (err: unknown): void => {
+    if (isGone(err)) void invalidate();
+  };
+}
+
+// ---- projects ----
+
+export function useProjects() {
+  return useQuery({ queryKey: keys.projects, queryFn: () => apiGet('/api/v1/projects', ProjectRecord.array()) });
+}
+
+// The id may not be known yet (a threat model's project is known once the model has loaded). The
+// query then stays off: with an empty id it would request the list endpoint instead.
+export function useProject(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.project(id ?? ''),
+    queryFn: () => apiGet(`/api/v1/projects/${id ?? ''}`, ProjectRecord),
+    enabled: id !== undefined,
+  });
+}
+
+export function useCreateProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ProjectCreateInput) => apiPost('/api/v1/projects', ProjectRecord, input),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.projects }),
+  });
+}
+
+export function useUpdateProject(id: string) {
+  const client = useQueryClient();
+  const refresh = () => Promise.all([client.invalidateQueries({ queryKey: keys.projects }), client.invalidateQueries({ queryKey: keys.project(id) })]);
+  return useMutation({
+    mutationFn: (input: ProjectUpdateInput) => apiPatch(`/api/v1/projects/${id}`, ProjectRecord, input),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
+
+export function useDeleteProject(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiDelete(`/api/v1/projects/${id}`),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: keys.project(id) });
+      client.removeQueries({ queryKey: keys.threatModels(id) });
+      return client.invalidateQueries({ queryKey: keys.projects });
+    },
+    onError: refetchWhenGone(client, () => client.invalidateQueries({ queryKey: keys.project(id) })),
+  });
+}
+
+// ---- threat models ----
+
+export function useThreatModels(projectId: string) {
+  return useQuery({
+    queryKey: keys.threatModels(projectId),
+    queryFn: () => apiGet(`/api/v1/projects/${projectId}/threat-models`, ThreatModelRecord.array()),
+  });
+}
+
+export function useThreatModel(id: string) {
+  return useQuery({ queryKey: keys.threatModel(id), queryFn: () => apiGet(`/api/v1/threat-models/${id}`, ThreatModelRecord) });
+}
+
+export function useCreateThreatModel(projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ThreatModelCreateInput) => apiPost('/api/v1/threat-models', ThreatModelRecord, input),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.threatModels(projectId) }),
+  });
+}
+
+export function useUpdateThreatModel(id: string, projectId: string | undefined) {
+  const client = useQueryClient();
+  const refresh = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: keys.threatModel(id) }),
+      projectId ? client.invalidateQueries({ queryKey: keys.threatModels(projectId) }) : undefined,
+    ]);
+  return useMutation({
+    mutationFn: (input: ThreatModelUpdateInput) => apiPatch(`/api/v1/threat-models/${id}`, ThreatModelRecord, input),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
+
+export function useDeleteThreatModel(id: string, projectId: string | undefined) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiDelete(`/api/v1/threat-models/${id}`),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: keys.threatModel(id) });
+      return projectId ? client.invalidateQueries({ queryKey: keys.threatModels(projectId) }) : undefined;
+    },
+    onError: refetchWhenGone(client, () => client.invalidateQueries({ queryKey: keys.threatModel(id) })),
+  });
+}
+
+// ---- elements (shown by name only: the UI doesn't create or edit them in this milestone) ----
+
+export function useElements(threatModelId: string) {
+  return useQuery({
+    queryKey: keys.elements(threatModelId),
+    queryFn: () => apiGet(`/api/v1/threat-models/${threatModelId}/elements`, ElementRecord.array()),
+  });
+}
+
+// ---- threats ----
+
+export function useThreats(threatModelId: string) {
+  return useQuery({
+    queryKey: keys.threats(threatModelId),
+    queryFn: () => apiGet(`/api/v1/threat-models/${threatModelId}/threats`, ThreatRecord.array()),
+  });
+}
+
+export function useCreateThreat(threatModelId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ThreatCreateInput) => apiPost('/api/v1/threats', ThreatRecord, input),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) }),
+  });
+}
+
+// The threat is a variable, not a hook argument, so one hook serves every row of the table.
+export function useUpdateThreat(threatModelId: string) {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) });
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ThreatUpdateInput }) => apiPatch(`/api/v1/threats/${id}`, ThreatRecord, input),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
+
+export function useDeleteThreat(threatModelId: string) {
+  const client = useQueryClient();
+  // A threat's mitigations go with it, so both lists are refetched.
+  const refresh = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: keys.threats(threatModelId) }),
+      client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) }),
+    ]);
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/api/v1/threats/${id}`),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
+
+// ---- mitigations: one list for the whole threat model, grouped by threat in the table ----
+
+export function useModelMitigations(threatModelId: string) {
+  return useQuery({
+    queryKey: keys.mitigations(threatModelId),
+    queryFn: () => apiGet(`/api/v1/threat-models/${threatModelId}/mitigations`, MitigationRecord.array()),
+  });
+}
+
+export function useCreateMitigation(threatModelId: string) {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
+  return useMutation({
+    mutationFn: (input: MitigationCreateInput) => apiPost('/api/v1/mitigations', MitigationRecord, input),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) })),
+  });
+}
+
+export function useUpdateMitigation(threatModelId: string) {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: MitigationUpdateInput }) =>
+      apiPatch(`/api/v1/mitigations/${id}`, MitigationRecord, input),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
+
+export function useDeleteMitigation(threatModelId: string) {
+  const client = useQueryClient();
+  const refresh = () => client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/api/v1/mitigations/${id}`),
+    onSuccess: refresh,
+    onError: refetchWhenGone(client, refresh),
+  });
+}
