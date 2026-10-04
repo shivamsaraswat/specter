@@ -1,38 +1,48 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.4.0 → 1.5.0
-Rationale: Phase 1 / Milestone 5 (specs/005-rest-api-v1) adds the authenticated REST API v1 over the
-  threat-model records, writes the first application queries against those tables with Kysely, and
-  removes the legacy threat tracker (the `/api/threats` endpoints, the static browser UI, the legacy
-  entry table, Milestone 4's link table and the data Milestone 4 imported). Principle V requires the
-  Threat Model to be updated in the same change when a feature adds an entry point, makes an asset
-  reachable or crosses a trust boundary, and requires a broadened grant to be called out. This is a
-  MINOR bump, following 1.3.0's and 1.4.0's precedent: it adds assets, an entry point and
-  mitigations and retires others, and removes no principle or rule that was in force. It is not a
-  PATCH, which Governance reserves for wording or clarity fixes with no rule change.
+Version change: 1.5.0 → 1.6.0
+Rationale: Phase 1 / Milestone 6 (specs/006-react-app-shell) gives Specter a browser UI again, served by
+  the same app container. It adds browser sessions (a server-side session record, the app's first
+  cookie, and a short-lived access token for the UI), the `/api/session` endpoints, sign-in throttling
+  on both sign-in paths, a strict content security policy and hardening headers on every response, and
+  real-browser tests in the required `test` check. Two items are brought forward from Phase 6 (security
+  headers and sign-in throttling), and Playwright from Phase 2, at the maintainer's direction; each is
+  justified in plan.md's Complexity Tracking and the PR description. Principle V requires the Threat
+  Model to be updated in the same change when a feature adds an entry point, an asset or a trust
+  boundary. This is a MINOR bump, following 1.3.0 to 1.5.0's precedent: it adds assets, entry points
+  and mitigations, and removes no principle or rule that was in force. It is not a PATCH, which
+  Governance reserves for wording or clarity fixes with no rule change.
 Modified principles:
-  - I: the typed query builder is now in use (Kysely for the threat-model tables, plain `pg` for
-    login, users and seeding); `/api/v1` bodies are validated with the shared zod schemas; the
-    no-default-allow rule is stated to cover the OpenAPI document. Stale Phase 0 paths corrected.
-  - III, IV: stale Phase 0 paths corrected. IV no longer promises a Kysely-typed migration mechanism:
-    migrations stay plain SQL files and Kysely is used for queries only.
+  - I: plain parameterized `pg` also covers browser sessions and sign-in throttling. Session
+    credentials and UI access tokens are named as credentials that are never logged or kept in browser
+    storage, and only a digest of a session credential is stored. The reviewed alternative to bearer
+    authentication for `/api/session` (the session cookie, with an Origin and JSON check) is stated,
+    along with which token each route accepts.
+  - II: the required `test` check now also builds the app and runs the browser tests against it.
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Assets (current): threat-model records are now reachable, and writable, through `/api/v1`.
-    Threat entry records and the legacy links are removed.
-  - Trust boundaries (current): the static-assets boundary is removed; `/api/v1` (with its OpenAPI
-    document) is added behind bearer authentication.
-  - Tampering: `/api/v1` accepts only `origin = 'manual'`, so a client cannot fake rule or AI
-    provenance. M4's link-protection note is retired with the links. Paths corrected.
-  - Repudiation: partially mitigated by a stdout write log (account, action, record type, id); the
-    open risk stays until Phase 6's audit log. M4's "Imported" attribution note is retired.
-  - Information Disclosure: `/api/v1` errors and logs never carry submitted or stored values.
-  - Denial of Service: the `/api/v1` lists are unpaginated.
-  - Elevation of Privilege: any authenticated account can now read, change and delete every
-    project and everything in it. Called out and accepted until Phase 6's RBAC.
+  - Assets (current): browser session records, session credentials (digests only), UI access tokens,
+    and sign-in throttle rows (HMAC keys only). The CI/CD asset now includes the browser binaries the
+    `test` job downloads.
+  - Trust boundaries (current): browser → the UI the same app serves, and `/api/session`, which is
+    authenticated by the session cookie. The "no browser UI until Milestone 6" statement is replaced.
+  - Spoofing: session theft is mitigated (HttpOnly cookie, rotation, reuse detection); login brute
+    force is mitigated by throttling, which counts an IPv6 address as its /64. Residual risks are
+    recorded: the 30-second grace window, guessing spread across many addresses, `/api/login` tokens
+    not revoked by sign out everywhere, and a credential more than one rotation old not triggering
+    reuse detection.
+  - Tampering: the CSRF note is restated for the cookie (SameSite=Strict, path-scoped, Origin and
+    JSON checked) while `/api/v1` stays bearer-only. The CI/CD boundary gains the browser download.
+  - Repudiation: sign-in and session events leave an operator trace (stdout, ids only). Still not
+    persisted, so the open risk stays until Phase 6.
+  - Information Disclosure: the CSP and hardening headers move from open risk to mitigated; XSS can no
+    longer exfiltrate a long-lived credential. Zod runs `jitless` so the CSP needs no exception.
+  - Denial of Service: failed sign-ins are throttled per address; general rate limiting stays open.
+  - Elevation of Privilege: scope is unchanged (any account, all data). The UI's access token is
+    limited to `/api/v1`, so an injected script cannot create accounts through `/api/users`.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -45,7 +55,7 @@ Templates requiring follow-up: none checked in this run (scope of this change is
 ### I. Secure Coding by Default (NON-NEGOTIABLE)
 All database access MUST use parameterized queries or a typed query builder (Kysely for the
 threat-model tables behind `/api/v1`, since Phase 1 Milestone 5; plain `pg` with parameterized SQL
-for login, users and admin seeding) — string-concatenated or
+for login, users, admin seeding, browser sessions and sign-in throttling) — string-concatenated or
 template-interpolated SQL is forbidden everywhere: values are always parameters. The one exception
 is an SQL identifier (a table, column or database name), which cannot be a parameter. It may be
 built into a statement only if it is a constant or comes from a fixed allow-list, and it MUST be
@@ -53,7 +63,7 @@ passed through the driver's identifier escaping (`pg.escapeIdentifier`, or the q
 equivalent); an identifier derived from request input is never allowed. All request input (body, params, query)
 MUST be validated at the boundary before use — reject unknown shapes, enforce type/length/enum
 constraints (via the shared zod schemas in `packages/core` for `/api/v1`; inline in
-`apps/api/src/routes/login.ts` and `users.ts`) rather than trusting the client.
+`apps/api/src/routes/login.ts`, `session.ts` and `users.ts`) rather than trusting the client.
 Passwords MUST be hashed with bcrypt (or an equivalent memory-hard algorithm) at cost factor
 ≥ 10 and MUST NEVER be logged, returned in API responses, or stored in plaintext. Authentication
 comparisons that branch on "does this identity exist" (e.g. login) MUST use a constant-time or
@@ -62,9 +72,16 @@ pattern in `apps/api/src/auth.ts`. Secrets — `JWT_SECRET`, DB credentials, adm
 Phase 3 onward, LLM provider API keys — MUST be sourced from environment variables or a secrets
 manager, MUST NEVER be committed to the repository, logged, stored in plaintext in the database,
 or sent to the browser, and the process MUST refuse to start if a required secret is missing.
+Session credentials and the browser UI's access tokens are credentials too: only a digest of a
+session credential is ever stored, neither is logged or put in a URL, and the access token is held
+in page memory only, never in browser storage.
 Every non-public route MUST sit behind an authentication check (or an equivalent, explicitly
 reviewed mechanism) — there is no default-allow. That includes the OpenAPI document served under
-`/api/v1`.
+`/api/v1`. `/api/users` accepts only an `/api/login` bearer token. `/api/v1` also accepts a browser
+UI's access token, checked against its still-active session on every request. The `/api/session`
+endpoints are authenticated by the session cookie, which is the reviewed mechanism: `SameSite=Strict`,
+scoped to that path, with an Origin check and a JSON content type on every request
+(`apps/api/src/session/cookie.ts`).
 **Rationale**: Specter stores STRIDE threat data and, later, an organization's design
 documents and code context; a security lapse in the tool that tracks threats undermines its own
 purpose. Non-negotiable because these are the few rules that, if violated, turn a code review
@@ -79,7 +96,8 @@ flows, from Phase 1's monorepo scaffold onward per plan.md) MUST pass before a c
 considered complete. A change that cannot be tested without a live Postgres instance MUST
 isolate the untestable part (e.g. via an injectable client, as `config.load()` already does)
 rather than being left untested. Every PR MUST pass typecheck, lint, test (against a real
-Postgres service container), and Docker build — these are enforced by a branch ruleset on `main`
+Postgres service container; this check also builds the app and runs the Playwright browser tests
+against it, since Phase 1 Milestone 6), and Docker build — these are enforced by a branch ruleset on `main`
 with no bypass actors, including for repository admins (`.github/rulesets/main.json`; see
 `docs/ci.md`); Dependabot and CodeQL (query suite `security-and-quality`) MUST stay enabled and
 remain informational/non-blocking in this milestone. Once any LLM-backed feature exists (Phase
@@ -169,20 +187,24 @@ over a vendor-locked competitor.
 ## Threat Model (STRIDE)
 
 This section reflects the application as implemented today (Node.js/Express 5 API with a versioned
-JSON API under `/api/v1`, no browser UI until Phase 1 Milestone 6, PostgreSQL, optional AWS Secrets
-Manager) and MUST be kept current per
+JSON API under `/api/v1`, browser sessions under `/api/session`, the React web app it serves,
+PostgreSQL, optional AWS Secrets Manager) and MUST be kept current per
 Principle V as each phase in plan.md lands. Phase boundaries that will change this section are
 called out inline below; they are not yet implemented and MUST NOT be treated as mitigated until
 they ship.
 
 **Assets (current)**: user credentials (`users.password_hash`); the JWT signing secret; database
 credentials; issued JWTs (bearer tokens) held by clients; the CI/CD pipeline's own integrity — the
-`GITHUB_TOKEN`, third-party GitHub Actions steps, and the base and service container images it pulls
-(Phase 1 Milestone 2, `specs/002-ci-pipeline/`); threat-model records — projects, threat models,
+`GITHUB_TOKEN`, third-party GitHub Actions steps, the base and service container images it pulls
+(Phase 1 Milestone 2, `specs/002-ci-pipeline/`), and, since Phase 1 Milestone 6, the Playwright browser
+binaries and system packages the `test` job downloads; threat-model records — projects, threat models,
 elements, threats and mitigations (Phase 1 Milestone 3, `specs/003-domain-schema/`), stored in the
 database and, since Phase 1 Milestone 5 (`specs/005-rest-api-v1/`), readable and writable by any
-authenticated account through `/api/v1`. The original threat entry records and Milestone 4's legacy
-links no longer exist: Milestone 5 removed them.
+authenticated account through `/api/v1`; browser sessions (`browser_sessions`, Phase 1 Milestone 6,
+`specs/006-react-app-shell/`), whose session credentials are stored only as SHA-256 digests, the
+short-lived access tokens the UI holds in page memory, and the sign-in failure counts
+(`sign_in_throttle`), whose keys are HMACs of what was typed and of the client address. The original
+threat entry records and Milestone 4's legacy links no longer exist: Milestone 5 removed them.
 **Assets (planned, not yet implemented)**: from Phase 3 — uploaded design documents, extracted
 text chunks and embeddings, LLM provider API keys, and the LLM outputs derived from them; from
 Phase 4 — read-only repository/IaC access tokens and cloned source code; from Phase 5 —
@@ -191,9 +213,11 @@ webhook targets.
 
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
-`/api/users` and `/api/v1`, with its OpenAPI document), where everything but login sits behind bearer
-authentication. There is no browser UI until Phase 1 Milestone 6, which adds a web app that calls the
-same API. The
+`/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document), where everything but login and
+session sign-in sits behind authentication: a bearer token for `/api/users` and `/api/v1`, the session
+cookie for the rest of `/api/session`. Since Phase 1 Milestone 6 the same app also serves the web app
+the browser loads (`apps/api/src/web.ts`, with a strict CSP), so a browser → UI boundary exists, and
+the UI's own scripts run inside the user's authenticated session. The
 app itself has a single trust tier: any holder of a valid JWT is fully trusted. Since Phase 1
 Milestone 2, a CI/CD boundary also exists: GitHub Actions workflows — including on pull requests
 from forks — run against this repository's contents with a scoped, read-by-default
@@ -205,19 +229,37 @@ Principle VI). Phase 4 adds a boundary into external source-control/IaC systems 
 code never executed). Phase 5 adds boundaries into external SaaS integrations and inbound
 webhooks.
 
-- **Spoofing**: Login (`POST /api/login`) is unauthenticated by design and has no rate
-  limiting or lockout, so credential stuffing / brute force is possible. *Mitigated*: username
-  enumeration via response timing is defended with a dummy bcrypt comparison
-  (`apps/api/src/auth.ts:DUMMY_HASH`). *Open risk*: no login rate limiting exists yet. *Planned*: from
+- **Spoofing**: Sign-in (`POST /api/login` and `POST /api/session`) is unauthenticated by design.
+  *Mitigated*: username enumeration via response timing is defended with a dummy bcrypt comparison
+  (`apps/api/src/auth.ts:DUMMY_HASH`), and throttling behaves the same whether or not the username
+  exists. *Mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per username-and-address and
+  per address (`apps/api/src/session/throttle.ts`), with no per-account lockout, so an attacker
+  cannot lock the admin out; an IPv6 address counts as its /64; the counted address is the socket
+  address unless `TRUST_PROXY` names a trusted proxy. Session theft is mitigated: the long-lived
+  credential is an HttpOnly cookie that scripts cannot read, it rotates on every renewal, and
+  replaying a replaced credential after a 30-second grace window ends the session (and is logged as
+  reuse). *Residual risks*: a thief who replays a just-replaced credential inside the grace window
+  gets one 5-minute access token and no new credential; guessing spread across many addresses or many
+  /64s is slowed per address but not stopped; `/api/login` bearer tokens are not revoked by sign out
+  everywhere and live until they expire; a credential more than one rotation old matches nothing and
+  is answered 401 without triggering reuse detection, because only the previous credential is stored
+  (the holder gains nothing, so no token-family table is kept). *Planned*: from
   Phase 3, indirect prompt injection from an ingested document could attempt to "spoof"
   instructions to the LLM (e.g. impersonate the system prompt); Principle VI's untrusted-input
   handling is the primary mitigation and MUST be verified before Phase 3 ships.
 - **Tampering**: All SQL is parameterized or built with Kysely (`apps/api/src/v1/`,
   `apps/api/src/routes/users.ts`, `apps/api/src/auth.ts`) — no injection path found. Request bodies
-  are size-capped at 100kb (`apps/api/src/app.ts`). No CSRF exposure: auth is bearer-token-based, not cookie-based, so no
-  same-origin form can ride a session. *Planned*: from Phase 3, AI-proposed edits are a new
+  are size-capped at 100kb (`apps/api/src/app.ts`). CSRF: `/api/v1` and `/api/users` authorize only by a credential the client sends explicitly,
+  never by a cookie, so no cross-site request can ride a session there. The one cookie
+  (`specter_session`) reaches only `/api/session`, is `SameSite=Strict`, and those endpoints also
+  require an Origin matching the request's host (Express's `req.host`, which honours
+  `X-Forwarded-Host` only from a trusted proxy) and a JSON content type, which forces a CORS
+  preflight the app never answers. *Planned*: from Phase 3, AI-proposed edits are a new
   tampering-like surface if they could reach the model without review; mitigated by Principle
-  VI's mandatory human-accept step. *Mitigated (Phase 1 Milestone 2)*: every third-party GitHub
+  VI's mandatory human-accept step. *Accepted risk (Phase 1 Milestone 6)*: the required `test` job downloads Playwright's browser
+  binaries and system packages from outside the repository, pinned only by the lockfile's
+  `@playwright/test` version, which Dependabot's cooldown and pnpm's `minimumReleaseAge` cover.
+  *Mitigated (Phase 1 Milestone 2)*: every third-party GitHub
   Actions step is pinned to a full commit SHA, not a movable tag; the Docker base image and the
   CI database's service-container image are pinned by digest; Dependabot's npm updates carry a
   2-day cooldown on top of pnpm's own `minimumReleaseAge`; and a required `lint`-check step fails
@@ -247,12 +289,18 @@ webhooks.
   *Partially mitigated (Phase 1 Milestone 5)*: every successful `/api/v1` create, update and
   delete writes one stdout line with the account id, action, record type and record id, never field
   values, so an operator has a trace. It is not persisted or tamper-evident, so the risk stays open
-  until Phase 6's audit log.
+  until Phase 6's audit log. *Partially mitigated (Phase 1 Milestone 6)*: every sign-in, failed
+  sign-in, throttled sign-in, logout, sign out everywhere and session end writes one stdout line with
+  ids and an event name only, never a username, password, credential, token or client address.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
   server-side only (`apps/api/src/app.ts` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
-  *Open risk*: no security-header middleware (e.g. Helmet) is present. *Planned*: Phase 6 adds
-  security headers explicitly; from Phase 3, a hosted (non-local) LLM provider is itself a
+  *Mitigated (Phase 1 Milestone 6)*: every response carries a strict Content-Security-Policy
+  (own origin only, no inline code, no framing) and hardening headers
+  (`apps/api/src/security-headers.ts`), brought forward from Phase 6; the UI renders all record text
+  as text; and an injected script can no longer read a long-lived credential. Zod runs `jitless`
+  (`apps/web/src/zod-config.ts`, which must stay the first import of the entry point), because its
+  `new Function` probe would otherwise be reported as a CSP violation. *Planned*: from Phase 3, a hosted (non-local) LLM provider is itself a
   disclosure path for any data included in a prompt — Principle VI requires the UI to disclose
   this, and a fully local model MUST remain available for installs that cannot accept it.
   *Mitigated (Phase 1 Milestone 2)*: no CI job references a repository secret; the `test` job's
@@ -265,15 +313,20 @@ webhooks.
   removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint.
 - **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
-  specs/005-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Open risk*: no rate limiting on any route,
-  including login. *Planned*: Phase 6 adds rate limiting explicitly; from Phase 3, LLM calls
+  specs/005-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
+  account, so the throttle cannot be used to lock a user out; behind a load balancer `TRUST_PROXY`
+  must be set, or every client shares the balancer's address and the per-address limit applies to
+  everyone at once. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
+  rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
 - **Elevation of Privilege**: *Open risk, by design, currently unmitigated*: there is no role
   model. Any authenticated user can create additional users (`POST /api/users`) and, since Phase 1
   Milestone 5, can read, change and delete every project, threat model, element, threat and
   mitigation through `/api/v1`, including deleting a project with everything inside it. That
-  widening was called out in Milestone 5's spec and PR, and is accepted until Phase 6. If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is
+  widening was called out in Milestone 5's spec and PR, and is accepted until Phase 6. The browser UI's
+  access token does not widen it: it is limited to `/api/v1` (`requireV1Token`), so a script injected
+  into the page cannot create accounts through `/api/users` (`requireApiToken`). If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is
   seeded and the app is unusable (fails closed, not open). *Planned*: plan.md Phase 6 introduces
   RBAC (viewer/contributor/reviewer/admin) and OIDC/SAML SSO to close this gap; until Phase 6
   ships, any change that widens what a plain authenticated user can do MUST be justified per
@@ -290,7 +343,8 @@ or update a bullet above in the same PR, whether or not the surrounding phase ha
 
 Every pull request MUST state, or make evident from the diff, how it satisfies Principles I–VI.
 The active test suite MUST pass before a PR is merged: typecheck, lint, test (with a Postgres
-service container), and Docker build are enforced as required checks on every PR to `main`, with
+service container, and including the Playwright browser tests against the built app), and Docker
+build are enforced as required checks on every PR to `main`, with
 Dependabot and CodeQL enabled alongside them (informational, not merge-blocking, in this
 milestone). A PR that touches authentication, configuration/secrets handling, any
 route's authorization/validation logic, or (from Phase 3) prompt construction, LLM provider
@@ -321,4 +375,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.5.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-04
+**Version**: 1.6.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-05

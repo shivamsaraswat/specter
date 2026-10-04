@@ -1,4 +1,4 @@
-node_modules
+**/node_modules
 .env
 .env.test
 .git
@@ -7,7 +7,9 @@ plan.md
 README.md
 docker-compose.yml
 Dockerfile
-dist
+**/dist
 coverage
 apps/api/test
 packages/*/test
+**/test-results
+**/playwright-report

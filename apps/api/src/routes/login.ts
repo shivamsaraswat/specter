@@ -1,19 +1,16 @@
 import { Router, type Request, type Response } from 'express';
-import { signToken, verifyCredentials } from '../auth.js';
+import { signToken } from '../auth.js';
+import { logSessionEvent } from '../session/log.js';
+import { signInGate } from '../session/throttle.js';
 
 const router = Router();
 
+// The bearer-token sign-in for API clients. Its 200, 400 and 401 answers are unchanged; failed attempts
+// are now throttled like browser sign-in, which adds a 429 (spec FR-005g).
 router.post('/', async (req: Request, res: Response) => {
-  const { username, password } = (req.body ?? {}) as { username?: unknown; password?: unknown };
-  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password) {
-    res.status(400).json({ error: 'username and password are required' });
-    return;
-  }
-  const user = await verifyCredentials(username, password);
-  if (!user) {
-    res.status(401).json({ error: 'Invalid credentials' });
-    return;
-  }
+  const user = await signInGate(req, res);
+  if (!user) return;
+  logSessionEvent('sign_in', { accountId: user.id, sessionId: null });
   res.json({ token: signToken(user) });
 });
 

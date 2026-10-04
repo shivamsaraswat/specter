@@ -8,8 +8,9 @@ export const v1Router = Router();
 
 const MAX_ACCOUNT_ID = 2147483647;
 
-// requireAuth has already checked the token's signature and expiry. v1 additionally needs the
-// account it names: a token without a usable numeric `sub` is rejected, never guessed at.
+// requireV1Token has already checked the token's signature and expiry (and, for a UI access token, that
+// its session is still active). v1 additionally needs the account it names: a token without a usable
+// numeric `sub` is rejected, never guessed at.
 function requireAccount(req: Request, res: Response, next: NextFunction): void {
   const sub = typeof req.user === 'object' ? req.user.sub : undefined;
   const accountId = typeof sub === 'string' && /^\d+$/.test(sub) ? Number(sub) : 0;

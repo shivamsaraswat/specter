@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { migrate } from '../src/index.js';
@@ -22,6 +24,12 @@ import {
 
 const IMPORT_FILE = '009_legacy_import.sql';
 const REMOVAL_FILE = '010_drop_legacy.sql';
+// Every migration file, in the order the runner applies them. Later milestones add files after the
+// removal, so "010 ran" is checked as "everything ran, in order", not "010 is the last one".
+const ALL_FILES = fs
+  .readdirSync(fileURLToPath(new URL('../migrations/', import.meta.url)))
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
 afterAll(async () => {
   await dropScratchDatabases();
@@ -231,7 +239,7 @@ describe('an empty database (US3 scenario 5)', () => {
 
     const recorded = await recordedMigrations(p);
     expect(recorded).toContain(REMOVAL_FILE);
-    expect(recorded.at(-1)).toBe(REMOVAL_FILE);
+    expect(recorded).toEqual(ALL_FILES);
     expect(await countRows(p, 'projects')).toBe(0);
     expect(await tableExists(p, 'users')).toBe(true);
     expect(await LEGACY_OBJECTS(p)).toEqual({ threat_entries: false, legacy_threat_links: false, guard: null });
