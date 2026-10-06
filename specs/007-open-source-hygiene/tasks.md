@@ -568,7 +568,7 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
   - mark `## Phase 1: Re-platform and real domain model` as done (✅), as Phase 0 is.
 
   Do this only with the maintainer's go-ahead, and never stage the file.
-- [ ] T039 After the maintainer pushes `feat/phase-1`, run quickstart.md B:
+- [X] T039 After the maintainer pushes `feat/phase-1`, run quickstart.md B:
   - `gh api "repos/shivamsaraswat/specter/license?ref=feat/phase-1" --jq .license.spdx_id` must
     print `Apache-2.0`. If not, apply research #3's fallback in `LICENSE` (restore the placeholder
     appendix line) and re-check.
@@ -579,7 +579,12 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
     errors in that view at all, for example by looking at a known-good form in another repository.
     If it does not, T040's "New issue" check is the first real validation, so be ready to fix any
     error in a follow-up.
-- [ ] T040 After merge to `main`, run quickstart.md C:
+
+  **Result (2026-10-06, PR #10)**: the four required checks and CodeQL passed. The `?ref=` license
+  call returned 404 on the fresh branch commit, although `licensee` 10.1.0 (the library GitHub uses)
+  matched `LICENSE` as Apache-2.0 at 100%, so the file was fine. The endpoint cannot be relied on for
+  a brand-new commit. T040's check on `main` is the authoritative one. The forms validated against the
+  community JSON Schema, and GitHub accepted them (T040).- [X] T040 After merge to `main`, run quickstart.md C:
   - `gh api repos/shivamsaraswat/specter/community/profile --jq .health_percentage` gives `100`
     (SC-001);
   - the license endpoint gives `Apache-2.0`;
@@ -591,6 +596,15 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
 
   Do not assert `files.issue_template` or a `contributor_covenant` key (research #1). Record the
   results in `specs/007-open-source-hygiene/pr-description.md`, or as a follow-up comment.
+
+  **Result (2026-10-06, merge commit `edc4747`)**: community health **100%**; license endpoint
+  `Apache-2.0`; private vulnerability reporting `enabled: true`; the security policy is detected
+  (`/security/policy`). "New issue" cannot be viewed signed out, because GitHub sends visitors to
+  sign-in. As the maintainer it shows Bug report, Feature request, GitHub's own "Report a security
+  vulnerability" row (from the policy) and this repo's contact link to the advisory form, and the
+  blank issue is tagged "Maintainers only", so visitors do not see it. Not observed: the bug form's
+  required-field enforcement and its redaction warning rendering. The forms are schema-valid and
+  mark steps, expected and actual as required.
 ---
 
 ## Dependencies & Execution Order
