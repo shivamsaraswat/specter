@@ -4,6 +4,8 @@
 
 ## How this satisfies Principles I–VI
 
+See the [constitution](https://github.com/shivamsaraswat/specter/blob/main/.specify/memory/constitution.md) for what each principle requires.
+
 <!-- One row per principle of the constitution (.specify/memory/constitution.md). "N/A" is fine, with a reason. -->
 
 | Principle | How |

@@ -148,8 +148,8 @@ included. The command is in `quickstart.md` A6. It never reads the untracked, gi
 |---|---|
 | Turn on private vulnerability reporting | Done, verified 2026-10-06 |
 | Repository description | Already set |
-| Edit the local, gitignored `plan.md`: drop the license from Open decisions and record "Apache-2.0 (2026-10-06): wide adoption, enterprise use and a patent grant"; mark Phase 1 done | Pending |
-| After pushing: `gh api "repos/shivamsaraswat/specter/license?ref=feat/phase-1" --jq .license.spdx_id` prints `Apache-2.0`, and `gh pr checks` shows `typecheck`, `lint`, `test` and `docker-build` green | Pending |
-| After merging: community profile health is 100%, and a signed-out visitor finds the security policy and a "New issue" page with only the two forms and the security link | Pending |
+| Edit the local, gitignored `plan.md`: drop the license from Open decisions and record "Apache-2.0 (2026-10-06): wide adoption, enterprise use and a patent grant"; mark Phase 1 done | Done, 2026-10-06 (local file, never staged) |
+| After pushing: `gh api "repos/shivamsaraswat/specter/license?ref=feat/phase-1" --jq .license.spdx_id` prints `Apache-2.0`, and `gh pr checks` shows `typecheck`, `lint`, `test` and `docker-build` green | Checks green. The `?ref=` call returned 404 on the fresh commit; `licensee` matched `LICENSE` as Apache-2.0 at 100%, and `main` reports `Apache-2.0` (see `tasks.md` T039) |
+| After merging: community profile health is 100%, and a signed-out visitor finds the security policy and a "New issue" page with only the two forms and the security link | Done, 2026-10-06: health 100%, license `Apache-2.0`, policy detected; the issue chooser shows both forms and the security links, with the blank issue "Maintainers only" (see `tasks.md` T040) |
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

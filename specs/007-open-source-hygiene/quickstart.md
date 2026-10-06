@@ -138,8 +138,12 @@ gh api "repos/shivamsaraswat/specter/license?ref=$B" --jq .license.spdx_id   # A
 gh pr checks --watch                                                          # typecheck, lint, test, docker-build: pass
 ```
 
-If the license is not detected as `Apache-2.0`, apply research #3's fallback: restore the appendix
-placeholder line. Then re-check.
+This call can return **404 on a brand-new branch commit** even when the file is fine, as it did for
+this milestone, because GitHub has not indexed the commit yet. It does work for refs GitHub has
+already indexed. If it 404s, check the file with `licensee` instead (`gem install licensee`, then
+`licensee detect <dir>`, which should say `Apache-2.0`, 100%, exact), and treat section C's check on
+`main` as the authoritative one. Only if `licensee` fails to match, apply research #3's fallback:
+restore the appendix placeholder line, then re-check.
 
 Also confirm that the PR description:
 - lists the maintainer steps (FR-024);
@@ -156,11 +160,15 @@ gh api repos/shivamsaraswat/specter/license --jq .license.spdx_id               
 gh api repos/shivamsaraswat/specter/private-vulnerability-reporting --jq .enabled     # true
 ```
 
-Then, as a signed-out visitor (or in a private window):
+Then check what a visitor sees. The repository page and Security tab are public, but **"New issue"
+sends signed-out visitors to sign-in**, so check it as a signed-in user:
 - **SC-003**: from the repository page, the Security tab shows the policy, and the advisory form is
-  at most 2 clicks away.
-- **SC-006**: "New issue" offers only Bug report, Feature request and "Report a security
-  vulnerability". There is no blank issue.
+  at most 2 clicks away. The policy is also detected by
+  `gh api graphql -f query='{repository(owner:"shivamsaraswat",name:"specter"){isSecurityPolicyEnabled securityPolicyUrl}}'`.
+- **SC-006**: "New issue" offers Bug report, Feature request and a "Report a security vulnerability"
+  link (GitHub also adds its own row for the policy, so two rows with that name are normal). The
+  blank issue is shown only to maintainers, tagged "Maintainers only". Do not use GraphQL's
+  `isBlankIssuesEnabled` for this: it read `true` here while the chooser was correct.
 - **US4**: the bug form refuses to submit without steps, expected and actual. The redaction warning
   is shown.
 
