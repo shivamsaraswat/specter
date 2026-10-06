@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest something Specter should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Specter is built one phase at a time. Features for later phases are scheduled in the
+        [Roadmap](https://github.com/shivamsaraswat/specter#roadmap), so check it first. A request is
+        still welcome, and helps decide what a later phase includes.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you want solved
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The behavior you propose
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Related roadmap phase
+      options:
+        - "Phase 2: Manual threat modeling"
+        - "Phase 3: AI threat models from documents"
+        - "Phase 4: Repositories and IaC"
+        - "Phase 5: Integrations"
+        - "Phase 6: Enterprise readiness"
+        - "Phase 7: Methodologies and frameworks"
+        - Not sure
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

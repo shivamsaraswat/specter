@@ -61,3 +61,19 @@ describe('built assets', () => {
     for (const { file, text } of js) expect(text, file).not.toMatch(/["'`]data:(image|font|application)\//i);
   });
 });
+
+// The production bundle keeps no license comments, so the MIT notices of the bundled dependencies
+// ship in this file instead (spec FR-006b). It sits in the build output, so the container image
+// carries it. It is deliberately not served: the static handler ignores dot-directories.
+describe('third-party notices', () => {
+  const NOTICES = `${DIST}.vite/license.md`;
+
+  function readNotices(): string {
+    if (!fs.existsSync(NOTICES)) throw new Error('apps/web/dist/.vite/license.md is missing: run pnpm build first');
+    return fs.readFileSync(NOTICES, 'utf8');
+  }
+
+  it.each(['react', 'react-dom', 'react-router', '@tanstack/react-query', 'zod'])('names %s with its version and license', (name) => {
+    expect(readNotices()).toMatch(new RegExp(`^## ${name.replace(/[/@]/g, '\\$&')} - \\S+ \\(\\S+\\)$`, 'm'));
+  });
+});

@@ -1,0 +1,31 @@
+## Summary
+
+<!-- What changed and why, in a few bullets. Link the issue (`Closes #123`) or the spec (`specs/NNN-name/`). -->
+
+## How this satisfies Principles I–VI
+
+<!-- One row per principle of the constitution (.specify/memory/constitution.md). "N/A" is fine, with a reason. -->
+
+| Principle | How |
+|---|---|
+| **I. Secure coding** | |
+| **II. Test-first** | |
+| **III. Simplicity** | |
+| **IV. Maintainability** | |
+| **V. Least privilege / Threat Model** | |
+| **VI. AI output is a draft** | |
+
+## Security implications
+
+<!-- A new or changed entry point, authentication, input validation, secrets or permissions? Describe
+     each, including anything this broadens. Write "None" if there are none. -->
+
+## Threat Model
+
+<!-- Updated: which section of the constitution's Threat Model changed. Or "No change", and why
+     (the change adds no asset, entry point or trust boundary). -->
+
+## Testing
+
+<!-- The tests you wrote first, and what they cover. Which of these you ran locally:
+     pnpm typecheck, pnpm lint, pnpm test, pnpm test:e2e, docker build . -->

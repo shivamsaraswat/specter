@@ -61,6 +61,13 @@ export default tseslint.config(
     },
   },
   {
+    // Repository tooling (Phase 1 Milestone 7): the license check.
+    files: ['scripts/**/*.ts'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     // @specter/core must run in the browser too (spec FR-036), so it cannot reach for Node built-ins.
     // Together with the Node-types-free `tsc` pass over src/ (packages/core/tsconfig.build.json),
     // this is checked on every PR by the existing typecheck and lint jobs.
