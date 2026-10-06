@@ -4,7 +4,7 @@ An open-source, self-hosted threat modeling platform, in early development.
 
 The goal: give Specter the context of a project (design docs, a repository, Jira/Confluence) and get a threat model back, or build one by hand on a data-flow diagram. Both paths produce the same threat model, AI suggestions are always drafts with citations that a human accepts or rejects, and you bring your own LLM, including a fully local one, so nothing has to leave your network.
 
-> **Current status: Phase 1, in progress.** Today Specter is an API and a small web app for STRIDE threat models: sign in, manage projects and threat models, and create, edit and delete threats and their mitigations (Node.js + Express, React, PostgreSQL), already deployable to AWS. The diagram editor and rule-generated threats are Phase 2. Everything below "Roadmap" is planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
+> **Current status: Phase 1 complete.** Today Specter is an API and a small web app for STRIDE threat models: sign in, manage projects and threat models, and create, edit and delete threats and their mitigations (Node.js + Express, React, PostgreSQL), already deployable to AWS. The diagram editor and rule-generated threats are Phase 2. Roadmap phases not marked ✅ are planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
 
 ## Roadmap
 
@@ -13,7 +13,7 @@ Built one phase at a time; each phase ends with something usable.
 | Phase | Goal | Release |
 | --- | --- | --- |
 | 0 ✅ | CRUD tracker for STRIDE threats, deployed to AWS | — |
-| 1 | Re-platform to a TypeScript monorepo (React, Express, Postgres) with a real domain model: projects, threat models, diagram elements, threats, mitigations. Phase 0's learning data is dropped, not migrated | — |
+| 1 ✅ | Re-platform to a TypeScript monorepo (React, Express, Postgres) with a real domain model: projects, threat models, diagram elements, threats, mitigations. Phase 0's learning data is dropped, not migrated | — |
 | 2 | Manual threat modeling: data-flow-diagram editor with trust boundaries, rule-based STRIDE-per-element threat generation, threat lifecycle and risk scoring, reports, OTM and Threat Dragon import/export | v0.1 |
 | 3 | AI threat models from uploaded docs or pasted text, with citations and human review. Bring your own LLM: Anthropic, OpenAI, Bedrock/Azure, or local models via Ollama/vLLM | v0.2 |
 | 4 | Threat models from code repositories and IaC (Terraform, Kubernetes, compose), with drift detection as the code changes | v0.3 |
@@ -175,3 +175,17 @@ Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for ever
 - The app reads its secrets from AWS Secrets Manager when configured to (see `apps/api/src/config.ts`).
 
 A reference deployment (ALB → private EC2 → RDS, Secrets Manager, CloudWatch) has been run against this app on AWS; a generic public write-up isn't published yet.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first, and note that everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a vulnerability, follow [SECURITY.md](SECURITY.md). Report it privately, never in a public issue.
+
+## License
+
+Specter is licensed under the [Apache License 2.0](LICENSE). In short, you may use, modify and distribute it, including commercially. In return you keep the license and copyright notices and state your changes, and the license includes an express patent grant from contributors.
+
+The container image also carries the license notices of the web app's bundled dependencies, at `apps/web/dist/.vite/license.md`.

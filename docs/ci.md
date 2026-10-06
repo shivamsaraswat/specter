@@ -9,7 +9,7 @@ every repository setting that isn't a file in this repo.
 | Check (job) | What it runs | Local equivalent | Timeout |
 | --- | --- | --- | --- |
 | `typecheck` | `pnpm typecheck` (`tsc --noEmit` in every package) | `pnpm typecheck` | 10 min |
-| `lint` | `pnpm lint` (ESLint in every package), then the [lockfile-format guard](#lockfile-format) | `pnpm lint` | 10 min |
+| `lint` | `pnpm lint` (ESLint in every package and in `scripts/`, then the [license check](#license-check)), then the [lockfile-format guard](#lockfile-format) | `pnpm lint` | 10 min |
 | `test` | `pnpm test` (Vitest in every package; a `globalSetup` migrates the database and seeds the admin user) against a real `postgres:16-alpine` service container, then `pnpm build`, the built-output check (`pnpm --filter @specter/web verify:build`: no inline script or style, no `data:` URIs), and the Playwright browser tests against the built app (`pnpm test:e2e`, Chromium) | `docker compose up -d db && pnpm test && pnpm build && pnpm --filter @specter/web verify:build && pnpm test:e2e` (once: `pnpm --filter @specter/web exec playwright install chromium`) | 25 min |
 | `docker-build` | `docker build --pull .` (never pushed anywhere) | `docker build .` | 15 min |
 
@@ -31,11 +31,19 @@ Two other workflows run but are **not required checks**:
 corepack enable            # gives you the exact pnpm version CI uses (packageManager)
 docker compose up -d db    # only the database
 pnpm install --frozen-lockfile
+cp .env.example .env.test  # once; then edit it, as described below
 pnpm typecheck
 pnpm lint
 pnpm test
 docker build .
 ```
+
+`pnpm test` and `pnpm test:e2e` read a gitignored `.env.test` at the repository root. CI supplies
+the same values as job variables instead, so it needs no such file. After `cp .env.example
+.env.test`, set `DB_PASSWORD=devpassword` (the database password in `docker-compose.yml`) and
+replace the other `change-me` values with local-only values, for example
+`JWT_SECRET=local-only-not-a-secret` and `ADMIN_PASSWORD=admin`. `DB_HOST=localhost` is already
+right. Never commit the file.
 
 `pnpm test` migrates the database and seeds the admin user itself (via a Vitest `globalSetup`),
 so this works against a freshly created database volume — you don't need to have run the full
@@ -95,6 +103,32 @@ command below both documents and recreates the setting.
 **Scheduled workflows note**: GitHub disables scheduled workflows on public repositories after
 60 days with no repository activity. If the weekly CodeQL run or the daily audit run stops firing,
 re-enable it from the Actions tab.
+
+## License check
+
+The `lint` job also fails when a dependency that ships in the product has a license that is not on
+the allowed list (Phase 1 / Milestone 7, `specs/007-open-source-hygiene/`). It runs as the last
+step of `pnpm lint`, so a local `pnpm lint` and the CI job behave identically.
+
+- **What it checks**: the production npm dependencies of every workspace package, as
+  `pnpm licenses list --prod --json` reports them. These are the ones deployed with the API or
+  bundled into the web app. Development-only dependencies are not checked, and neither are the
+  container base image's operating-system packages.
+- **The policy** is `scripts/license-policy.json`: `allowed`, a list of SPDX license ids (MIT, ISC,
+  BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD), and `exceptions`, a map from package name to the
+  reason it is exempt. The check is default-deny. A license that is missing, unknown, written as
+  free text or uses `WITH` fails, and so does an exception for a package that no longer ships.
+  `(MIT OR GPL-3.0-only)` passes, because one alternative is allowed.
+- **Adding an exception** is a reviewed change to that file. Verify the dependency's real license
+  by hand, and put that license and the reason in the entry. Changing `allowed` is reviewed the same
+  way, with the reason in the pull request.
+- **Exit codes**: `0` all allowed, `1` at least one violation (one line each), `2` the check could
+  not run, for example when `pnpm licenses` fails or the policy is malformed. It never counts as a
+  pass.
+- **No network access**: it reads the installed package manifests only.
+- **Third-party notices**: the web build also writes `apps/web/dist/.vite/license.md`, with the
+  license text of every bundled dependency, because the minified bundle keeps no license comments.
+  The image carries it, it is not served, and `pnpm --filter @specter/web verify:build` checks it.
 
 ## Lockfile format
 

@@ -1,48 +1,21 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.5.0 → 1.6.0
-Rationale: Phase 1 / Milestone 6 (specs/006-react-app-shell) gives Specter a browser UI again, served by
-  the same app container. It adds browser sessions (a server-side session record, the app's first
-  cookie, and a short-lived access token for the UI), the `/api/session` endpoints, sign-in throttling
-  on both sign-in paths, a strict content security policy and hardening headers on every response, and
-  real-browser tests in the required `test` check. Two items are brought forward from Phase 6 (security
-  headers and sign-in throttling), and Playwright from Phase 2, at the maintainer's direction; each is
-  justified in plan.md's Complexity Tracking and the PR description. Principle V requires the Threat
-  Model to be updated in the same change when a feature adds an entry point, an asset or a trust
-  boundary. This is a MINOR bump, following 1.3.0 to 1.5.0's precedent: it adds assets, entry points
-  and mitigations, and removes no principle or rule that was in force. It is not a PATCH, which
-  Governance reserves for wording or clarity fixes with no rule change.
-Modified principles:
-  - I: plain parameterized `pg` also covers browser sessions and sign-in throttling. Session
-    credentials and UI access tokens are named as credentials that are never logged or kept in browser
-    storage, and only a digest of a session credential is stored. The reviewed alternative to bearer
-    authentication for `/api/session` (the session cookie, with an Origin and JSON check) is stated,
-    along with which token each route accepts.
-  - II: the required `test` check now also builds the app and runs the browser tests against it.
+Version change: 1.6.0 → 1.6.1
+Rationale: Phase 1 / Milestone 7 (specs/007-open-source-hygiene) adds the repository's public-facing
+  documents: LICENSE (Apache-2.0), SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, issue forms and a
+  pull request template. Governance lists where implementation-level how-to guidance belongs, so
+  CONTRIBUTING.md and SECURITY.md join that list. This is a PATCH: a list addition for clarity, with
+  no principle, rule or gate added, changed or removed. A dependency license check was also added to
+  the existing required `lint` check; it is documented in docs/ci.md, not here, because writing it
+  into Principle II or the Development Workflow would be a rule change and a MINOR bump.
+Modified principles: none
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
-Threat Model changes:
-  - Assets (current): browser session records, session credentials (digests only), UI access tokens,
-    and sign-in throttle rows (HMAC keys only). The CI/CD asset now includes the browser binaries the
-    `test` job downloads.
-  - Trust boundaries (current): browser → the UI the same app serves, and `/api/session`, which is
-    authenticated by the session cookie. The "no browser UI until Milestone 6" statement is replaced.
-  - Spoofing: session theft is mitigated (HttpOnly cookie, rotation, reuse detection); login brute
-    force is mitigated by throttling, which counts an IPv6 address as its /64. Residual risks are
-    recorded: the 30-second grace window, guessing spread across many addresses, `/api/login` tokens
-    not revoked by sign out everywhere, and a credential more than one rotation old not triggering
-    reuse detection.
-  - Tampering: the CSRF note is restated for the cookie (SameSite=Strict, path-scoped, Origin and
-    JSON checked) while `/api/v1` stays bearer-only. The CI/CD boundary gains the browser download.
-  - Repudiation: sign-in and session events leave an operator trace (stdout, ids only). Still not
-    persisted, so the open risk stays until Phase 6.
-  - Information Disclosure: the CSP and hardening headers move from open risk to mitigated; XSS can no
-    longer exfiltrate a long-lived credential. Zod runs `jitless` so the CSP needs no exception.
-  - Denial of Service: failed sign-ins are throttled per address; general rate limiting stays open.
-  - Elevation of Privilege: scope is unchanged (any account, all data). The UI's access token is
-    limited to `/api/v1`, so an injected script cannot create accounts through `/api/users`.
+Threat Model changes: none. The milestone adds no asset, entry point or trust boundary: the new
+  documents are static, the license check runs offline inside the existing `lint` job, and the web
+  build's third-party notices file (dist/.vite/license.md) ships in the image and is not served.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -372,7 +345,7 @@ a PATCH or MINOR change, not evidence the principle was wrong. Every PR is expec
 reviewable against these principles; unavoidable complexity or a deliberate exception (e.g.
 broadening a permission before role-based access exists) MUST be justified in the PR description
 rather than silently merged. This file is the source of truth for "why" a rule exists —
-implementation-level how-to guidance belongs in `README.md`, `API.md`, `plan.md`, and code
+implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.6.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-05
+**Version**: 1.6.1 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-06
