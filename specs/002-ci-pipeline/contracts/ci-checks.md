@@ -55,9 +55,9 @@ report (verified with `pnpm audit --help` on 12.6.0).
 
 | Ecosystem | Directories | Schedule | Groups | Other |
 |---|---|---|---|---|
-| `npm` | `/` | weekly, Monday | `minor` + `patch` → one PR | `cooldown.default-days: 2`, `open-pull-requests-limit: 5` |
-| `docker` | `/` | weekly, Monday | `minor` + `patch` → one PR | Base image pinned as `tag@sha256`, so digest refreshes are proposed. Ignore `node` semver-major. Limit 5. |
-| `github-actions` | `/`, `/.github/actions/*` | weekly, Monday | `minor` + `patch` → one PR | limit 5. Updates SHA pins and their `# vX.Y.Z` comments. |
+| `npm` | `/` | weekly, Monday | `minor` + `patch` → one PR | `cooldown.default-days: 3`, `open-pull-requests-limit: 5` |
+| `docker` | `/` | weekly, Monday | `minor` + `patch` → one PR | Base image pinned as `tag@sha256`, so digest refreshes are proposed. Ignore `node` semver-major. `cooldown.default-days: 3`. Limit 5. |
+| `github-actions` | `/`, `/.github/actions/*` | weekly, Monday | `minor` + `patch` → one PR | `cooldown.default-days: 3`, limit 5. Updates SHA pins and their `# vX.Y.Z` comments. |
 
 Security updates are individual PRs and are not subject to the cooldown.
 

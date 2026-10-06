@@ -234,8 +234,9 @@ lands in Milestone 6. A GitHub Actions cache backend would help then.
   still get individual PRs.
 - **PR limit**: `open-pull-requests-limit: 5` per ecosystem, to meet SC-007's bound.
 - **Security updates stay individual** so each advisory fix is reviewed on its own.
-- **Cooldown:** npm version updates get `cooldown.default-days: 2`, which exceeds pnpm's default
-  24-hour `minimumReleaseAge`.
+- **Cooldown:** version updates for every ecosystem get `cooldown.default-days: 3`. For npm this
+  exceeds pnpm's default 24-hour `minimumReleaseAge`. (Originally 2 days, npm only; raised to 3 and
+  extended to docker and github-actions.)
   - **Limitation:** the cooldown covers only *direct* dependencies. A Dependabot PR can still fail
     with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` when a transitive dependency was republished
     within 24 hours. Such a PR stays red, per the spec's "stays red" edge case. The fix is to

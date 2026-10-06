@@ -26,7 +26,7 @@ static security analysis for the pnpm monorepo. It adds:
    PRs, on pushes to `main` and weekly. It is informational only.
 3. **Dependabot (`dependabot.yml`)**:
    - Covers npm, docker and github-actions, weekly.
-   - Minor and patch updates are grouped, npm updates have a cooldown, and new Node majors are
+   - Minor and patch updates are grouped, every ecosystem has a 3-day cooldown, and new Node majors are
      ignored.
 4. **A daily, non-required `pnpm audit` job (`audit.yml`)**: a second source of advisories.
 

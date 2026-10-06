@@ -74,6 +74,6 @@ describe('third-party notices', () => {
   }
 
   it.each(['react', 'react-dom', 'react-router', '@tanstack/react-query', 'zod'])('names %s with its version and license', (name) => {
-    expect(readNotices()).toMatch(new RegExp(`^## ${name.replace(/[/@]/g, '\\$&')} - \\S+ \\(\\S+\\)$`, 'm'));
+    expect(readNotices()).toMatch(new RegExp(`^## ${name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')} - \\S+ \\(\\S+\\)$`, 'm'));
   });
 });

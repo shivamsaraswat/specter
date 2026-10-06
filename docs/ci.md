@@ -157,10 +157,10 @@ pnpm regenerate the lockfile normally.
 
 ## Dependabot
 
-Weekly (Monday), grouped per ecosystem for minor/patch updates:
+Weekly (Monday), grouped per ecosystem for minor/patch updates. Every ecosystem has a 3-day
+cooldown on new releases (`cooldown.default-days: 3`):
 
-- **npm** (`/`) — a 2-day cooldown on new releases (`cooldown.default-days: 2`), which exceeds
-  pnpm's own 24-hour `minimumReleaseAge` protection.
+- **npm** (`/`) — the cooldown exceeds pnpm's own 24-hour `minimumReleaseAge` protection.
   - **Known limitation**: the cooldown only covers *direct* dependencies. A Dependabot PR can
     still fail with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` if a *transitive* dependency was
     published in the last 24 hours. If that happens, comment `@dependabot recreate` on the PR the

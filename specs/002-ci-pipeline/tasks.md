@@ -331,14 +331,14 @@ action (plan.md, research.md #9).
 
 - [x] T025 [P] [US3] Create `.github/dependabot.yml` (`version: 2`) per contracts/ci-checks.md. Each ecosystem gets `schedule: {interval: weekly, day: monday}` and `open-pull-requests-limit: 5`.
   - **npm**:
-    - `directory: "/"`, `cooldown: {default-days: 2}`
+    - `directory: "/"`, `cooldown: {default-days: 3}`
     - `groups: {npm-minor-patch: {update-types: [minor, patch]}}`
   - **docker**:
-    - `directory: "/"`
+    - `directory: "/"`, `cooldown: {default-days: 3}`
     - `groups: {docker-minor-patch: {update-types: [minor, patch]}}`
     - `ignore: [{dependency-name: node, update-types: ['version-update:semver-major']}]`
   - **github-actions**:
-    - `directories: ["/", "/.github/actions/*"]`
+    - `directories: ["/", "/.github/actions/*"]`, `cooldown: {default-days: 3}`
     - `groups: {actions-minor-patch: {update-types: [minor, patch]}}`
   - Do not configure `labels` (Dependabot creates `dependencies` itself), and do not configure auto-merge (FR-022).
 - [x] T026 [P] [US3] Create `.github/workflows/audit.yml`:
@@ -397,7 +397,7 @@ action (plan.md, research.md #9).
   4. **Repository settings**: every setting from research.md #9, each with its exact `gh api` command, so it can be recreated (FR-023).
   5. **Lockfile format**: why the lockfile must be a single document, the `pmOnFail: ignore` trade-off, and the revert trigger (dependabot-core#15904). This section is the anchor that T013's error message links to.
   6. **Dependabot**:
-     - Grouping, and the 2-day npm cooldown.
+     - Grouping, and the 3-day cooldown on every ecosystem.
      - A PR can fail with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. When it does, comment `@dependabot recreate` after 24 hours.
      - Node majors are a deliberate manual change.
   7. **CodeQL**: findings are informational, the suite is `security-and-quality`, and a dismissal needs a written reason.
@@ -412,7 +412,7 @@ action (plan.md, research.md #9).
   1. **Sync Impact Report**: version 1.1.0 → 1.2.0, with the rationale and the changed sections.
   2. **Principle II** and **Development Workflow & Quality Gates**: rewrite "Once Phase 1's CI lands…" and "…once it lands" in the present tense, naming the four required checks, CodeQL (informational) and Dependabot.
   3. **Threat Model**: add bullets for the CI supply-chain trust boundary:
-     - **Tampering**: third-party actions pinned by SHA, the base and service images pinned by digest, the Dependabot npm cooldown and pnpm `minimumReleaseAge`, and the lockfile-format guard.
+     - **Tampering**: third-party actions pinned by SHA, the base and service images pinned by digest, the Dependabot cooldown and pnpm `minimumReleaseAge`, and the lockfile-format guard.
      - **Information Disclosure**: no secrets in CI, `pull_request` only (never `pull_request_target`), and `persist-credentials: false`.
      - **Elevation of Privilege**: the read-only default token, job-scoped `security-events: write`, and a merge gate that nobody can bypass.
      - **Accepted risk**: `pmOnFail: ignore` disables pnpm's own version check. The compensating controls are Corepack and the pinned CI install. The revert trigger is dependabot-core#15904.
