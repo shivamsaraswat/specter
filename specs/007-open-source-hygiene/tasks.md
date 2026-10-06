@@ -584,7 +584,9 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
   call returned 404 on the fresh branch commit, although `licensee` 10.1.0 (the library GitHub uses)
   matched `LICENSE` as Apache-2.0 at 100%, so the file was fine. The endpoint cannot be relied on for
   a brand-new commit. T040's check on `main` is the authoritative one. The forms validated against the
-  community JSON Schema, and GitHub accepted them (T040).- [X] T040 After merge to `main`, run quickstart.md C:
+  community JSON Schema, and GitHub accepted them (T040).
+
+- [X] T040 After merge to `main`, run quickstart.md C:
   - `gh api repos/shivamsaraswat/specter/community/profile --jq .health_percentage` gives `100`
     (SC-001);
   - the license endpoint gives `Apache-2.0`;
@@ -707,3 +709,12 @@ Task: "T016 Add license field to five manifests"
   placeholders change.
 - Commit only when the maintainer asks.
 - `plan.md` is local-only. T038 never stages it.
+
+---
+
+## Phase 9: Convergence
+
+**Purpose**: Remaining work found by `/speckit-converge` on 2026-10-06, after `/speckit-implement`.
+
+- [X] T041 Restore the line break before T040 in `specs/007-open-source-hygiene/tasks.md`: the T039 "Result" paragraph ends `... accepted them (T040).- [X] T040 After merge to \`main\`, run quickstart.md C:` on one line (line 587), so T040 is not a task line and the file counts 39 tasks. Put `- [X] T040 After merge to \`main\`, run quickstart.md C:` on its own line, directly after a blank line, keep its text and the indented bullets and result paragraph that follow unchanged, then confirm `grep -cE '^- \[.\] T[0-9]{3} ' specs/007-open-source-hygiene/tasks.md` prints 40 per the tasks checklist format (contradicts)
+- [X] T042 [P] Add a rendered link to the constitution in the "How this satisfies Principles I–VI" section of `.github/pull_request_template.md`, per T021 and `specs/007-open-source-hygiene/contracts/github-templates.md` (partial): the path appears only inside HTML comments, so a contributor never sees a link. Use the absolute URL `https://github.com/shivamsaraswat/specter/blob/main/.specify/memory/constitution.md`, because relative links do not resolve in a pull request body. Put it in visible text, for example "See the [constitution](...) for what each principle requires.", above the table, and keep the six table rows and the other four headings as they are
