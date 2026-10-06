@@ -67,7 +67,7 @@ A PR that Dependabot opens.
 | Attribute | Rule |
 |---|---|
 | `ecosystem` | `npm`, `docker` or `github-actions` (FR-019) |
-| `kind` | `version-update` (weekly, grouped minor and patch, npm cooldown of 2 days) or `security-update` (triggered by an advisory, individual, not delayed by the cooldown) (FR-020, FR-021) |
+| `kind` | `version-update` (weekly, grouped minor and patch, 3-day cooldown on every ecosystem) or `security-update` (triggered by an advisory, individual, not delayed by the cooldown) (FR-020, FR-021) |
 | `limit` | at most 5 open version-update PRs per ecosystem (SC-007) |
 | `ignored` | `node` base-image semver-major bumps (research.md #5) |
 
