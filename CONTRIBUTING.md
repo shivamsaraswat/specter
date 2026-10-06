@@ -20,8 +20,9 @@ vulnerability, read [SECURITY.md](SECURITY.md) and **never** open a public issue
 
 ## Setup
 
-You need Node.js 22 or newer, [Corepack](https://nodejs.org/api/corepack.html) (it ships with Node),
-and PostgreSQL 13 or newer. The simplest way to get a database is Docker Compose.
+You need Node.js 22 or newer, [Corepack](https://github.com/nodejs/corepack), and PostgreSQL 13 or
+newer. Corepack comes with Node.js 22 and 24. From Node.js 25 it no longer does, so install it
+first with `npm install -g corepack`. The simplest way to get a database is Docker Compose.
 
 ```sh
 corepack enable                     # gives you the exact pnpm version this repo pins

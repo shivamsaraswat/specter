@@ -384,7 +384,7 @@ SC-006).
 
 | id | type | required | content |
 |---|---|---|---|
-| `redaction` | markdown | n/a | Remove secrets, tokens, passwords, session cookies and personal data from anything pasted. Report vulnerabilities privately (link SECURITY.md). |
+| (no id) | markdown | n/a | Remove secrets, tokens, passwords, session cookies and personal data from anything pasted. Report vulnerabilities privately (link SECURITY.md). |
 | `version` | input | no | `git rev-parse --short HEAD` or the image tag |
 | `deployment` | dropdown | no | options: "docker compose", "Without Docker (pnpm)", "Other" |
 | `steps` | textarea | **yes** | the steps to reproduce |
@@ -398,7 +398,7 @@ SC-006).
 
 | id | type | required | content |
 |---|---|---|---|
-| `intro` | markdown | n/a | Link `https://github.com/shivamsaraswat/specter#roadmap`. Later-phase features are scheduled there. |
+| (no id) | markdown | n/a | Link `https://github.com/shivamsaraswat/specter#roadmap`. Later-phase features are scheduled there. |
 | `problem` | textarea | **yes** | the problem to solve |
 | `proposal` | textarea | **yes** | the proposed behavior |
 | `phase` | dropdown | no | options, exactly: "Phase 2: Manual threat modeling", "Phase 3: AI threat models from documents", "Phase 4: Repositories and IaC", "Phase 5: Integrations", "Phase 6: Enterprise readiness", "Phase 7: Methodologies and frameworks", "Not sure" |
@@ -516,7 +516,7 @@ SC-006).
 maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 changes
 `CONTRIBUTING.md`, commit that too, with the maintainer's approval, before T036.
 
-- [ ] T035 Verify SC-004 with a newcomer dry run, after the commit checkpoint. Clone the branch into the scratchpad
+- [X] T035 Verify SC-004 with a newcomer dry run, after the commit checkpoint. Clone the branch into the scratchpad
   (`git clone --branch feat/phase-1 <repo path> <scratchpad>/newcomer`) and follow **only**
   `CONTRIBUTING.md` from Setup through every check, timing it and excluding download time. Use a
   separate database volume or `docker compose -p newcomer`, so the main checkout's data is
@@ -524,22 +524,23 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
   `5432` and `3000`. It passes if every check runs within 30 minutes with no other document consulted.
   Record any step CONTRIBUTING.md was missing, fix it in `CONTRIBUTING.md`, and record the timing
   in `specs/007-open-source-hygiene/pr-description.md` under "Reviews". Remove the clone afterwards.
-- [ ] T036 Run the credential scan (quickstart.md A6, FR-022, SC-005) **after** the milestone's
+- [X] T036 Run the credential scan (quickstart.md A6, FR-022, SC-005) **after** the milestone's
   changes are committed on `feat/phase-1` (the commit checkpoint, plus any fix from T035), so the
   scan covers the new files at the branch's tip.
-  1. `git rev-list --all --count`
+  1. `git rev-list --all --no-merges --count`
   2. the pinned `ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f`
      `git` command, exactly as written in quickstart.md (with the `safe.directory` env vars,
      `--log-opts="--all" --redact -v`).
 
   Then:
-  - Confirm that the commits-scanned count equals the rev-list count. Otherwise the run failed.
+  - Confirm that the commits-scanned count equals the non-merge rev-list count. Merge commits carry
+    no diff of their own, so gitleaks does not count them. A lower count means the run failed.
   - Triage each finding. Documented dev defaults (`admin`, `devpassword`, `ci-only-not-a-secret`,
     `.env.example`) are expected. Any other finding: stop and tell the maintainer, because the
     credential must be revoked at its source.
   - Record the result (counts, finding summary, image digest) under "Reviews" in
     `specs/007-open-source-hygiene/pr-description.md`.
-- [ ] T037 Write `specs/007-open-source-hygiene/pr-description.md`, keeping the "Reviews" section from
+- [X] T037 Write `specs/007-open-source-hygiene/pr-description.md`, keeping the "Reviews" section from
   T013, T014, T035 and T036. Follow the structure of `specs/005-rest-api-v1/pr-description.md`:
   - **Summary**;
   - **How this satisfies Principles I–VI**, as a table;
@@ -560,7 +561,7 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
     - after merge, check community health is 100%.
 
   End with the attribution lines from the session's system reminder, if a PR is opened.
-- [ ] T038 Maintainer-only, outside the PR. In the local, gitignored `plan.md`:
+- [X] T038 Maintainer-only, outside the PR. In the local, gitignored `plan.md`:
   - remove the "License" bullet from Open decisions;
   - record under it "License: Apache-2.0 (decided 2026-10-06), for wide adoption, enterprise use
     and its patent grant";
@@ -572,6 +573,12 @@ maintainer to commit the milestone's changes on `feat/phase-1` now. If T035 chan
     print `Apache-2.0`. If not, apply research #3's fallback in `LICENSE` (restore the placeholder
     appendix line) and re-check.
   - `gh pr checks` must show `typecheck`, `lint`, `test` and `docker-build` green.
+  - Schema check of the issue forms, which GitHub shows only from the default branch after merge:
+    open `.github/ISSUE_TEMPLATE/bug_report.yml` and `feature_request.yml` on the branch in
+    GitHub's web UI and confirm there is no error banner. First confirm that GitHub flags form
+    errors in that view at all, for example by looking at a known-good form in another repository.
+    If it does not, T040's "New issue" check is the first real validation, so be ready to fix any
+    error in a follow-up.
 - [ ] T040 After merge to `main`, run quickstart.md C:
   - `gh api repos/shivamsaraswat/specter/community/profile --jq .health_percentage` gives `100`
     (SC-001);

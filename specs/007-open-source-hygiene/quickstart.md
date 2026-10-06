@@ -76,7 +76,7 @@ Run this **after** the milestone's changes are committed on `feat/phase-1`, so t
 the new files at the branch's tip (SC-005).
 
 ```sh
-git rev-list --all --count     # note this number
+git rev-list --all --no-merges --count     # note this number
 docker run --rm -v "$PWD:/repo:ro" \
   -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
   ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
@@ -86,7 +86,8 @@ docker run --rm -v "$PWD:/repo:ro" \
 The `safe.directory` setting stops git inside the container refusing the bind-mounted repository as
 "dubious ownership". Without it, gitleaks can scan nothing and still report no leaks.
 
-**Expected**: gitleaks's "commits scanned" count equals the `git rev-list --all --count` number. A
+**Expected**: gitleaks's "commits scanned" count equals the `git rev-list --all --no-merges --count`
+number (merge commits carry no diff of their own, so gitleaks does not count them). A
 lower count, or zero, is a failed run, not a pass. If the counts match, the result is either no leaks, or only hits on documented development defaults (`admin`,
 `devpassword`, `ci-only-not-a-secret`, `.env.example`), each triaged by hand. Record the result in
 the PR. Any other hit means the credential is revoked and replaced at its source (spec Edge Cases).

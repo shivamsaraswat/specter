@@ -81,10 +81,13 @@ clear engine-mismatch error before anything else runs.
 corepack enable            # gives you the exact pnpm version this repo pins (packageManager)
 docker compose up -d db    # only the database — the DB-backed tests below need it running
 pnpm install
+cp .env.example .env.test  # once, then edit it (see below)
 pnpm run typecheck
 pnpm run lint
 pnpm run test
 ```
+
+The tests, and the browser tests further down, read a gitignored `.env.test` at the repository root (CI supplies the same values as job variables instead). After copying `.env.example`, set `DB_PASSWORD=devpassword` (the database password in `docker-compose.yml`) and replace the other `change-me` values with local-only values, for example `JWT_SECRET=local-only-not-a-secret` and `ADMIN_PASSWORD=admin`. `DB_HOST=localhost` is already right. [CONTRIBUTING.md](CONTRIBUTING.md) walks through the full setup.
 
 To run the web app while you work on it, start the API and Vite in two terminals. Vite proxies `/api` to the API, and serves the app on <http://localhost:5173>:
 

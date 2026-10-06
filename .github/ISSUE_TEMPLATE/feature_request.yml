@@ -3,7 +3,6 @@ description: Suggest something Specter should do
 labels: [enhancement]
 body:
   - type: markdown
-    id: intro
     attributes:
       value: |
         Specter is built one phase at a time. Features for later phases are scheduled in the

@@ -3,7 +3,6 @@ description: Something in Specter doesn't work the way it should
 labels: [bug]
 body:
   - type: markdown
-    id: redaction
     attributes:
       value: |
         **Before you post:** remove secrets, tokens, passwords, session cookies and personal data from

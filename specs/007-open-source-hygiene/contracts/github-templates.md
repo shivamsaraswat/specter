@@ -3,6 +3,10 @@
 The forms use GitHub's issue-forms YAML syntax. The labels `bug` and `enhancement` already exist in
 the repository, so none is created.
 
+A `markdown` block carries **no `id`**: GitHub's form schema documents `id` as "the identifier for the
+element, except when `type` is set to `markdown`", and `value` as the only attribute of a markdown
+block. (Found in review; the first draft gave the two markdown blocks ids.)
+
 ## `.github/ISSUE_TEMPLATE/config.yml` (FR-010, FR-016)
 
 - `blank_issues_enabled: false`.
@@ -18,7 +22,7 @@ the repository, so none is created.
 
 | id | type | label (gist) | required |
 |---|---|---|---|
-| `redaction` | markdown | a warning: remove secrets, tokens, passwords, session cookies and personal data from anything pasted below; report vulnerabilities privately (link to SECURITY.md) | n/a |
+| (no id) | markdown | a warning: remove secrets, tokens, passwords, session cookies and personal data from anything pasted below; report vulnerabilities privately (link to SECURITY.md) | n/a |
 | `version` | input | the version or commit (`git rev-parse --short HEAD`, or the image tag) | no |
 | `deployment` | dropdown | how it runs: "docker compose", "Without Docker (pnpm)", "Other" | no |
 | `steps` | textarea | the steps to reproduce | **yes** |
@@ -33,7 +37,7 @@ the repository, so none is created.
 
 | id | type | label (gist) | required |
 |---|---|---|---|
-| `intro` | markdown | link to the README's [Roadmap](../../README.md#roadmap) (absolute URL `https://github.com/shivamsaraswat/specter#roadmap`); later-phase features are scheduled there | n/a |
+| (no id) | markdown | link to the README's [Roadmap](../../README.md#roadmap) (absolute URL `https://github.com/shivamsaraswat/specter#roadmap`); later-phase features are scheduled there | n/a |
 | `problem` | textarea | the problem you want solved | **yes** |
 | `proposal` | textarea | the behavior you propose | **yes** |
 | `phase` | dropdown | the related roadmap phase. Options, exactly: "Phase 2: Manual threat modeling", "Phase 3: AI threat models from documents", "Phase 4: Repositories and IaC", "Phase 5: Integrations", "Phase 6: Enterprise readiness", "Phase 7: Methodologies and frameworks", "Not sure" | no |
