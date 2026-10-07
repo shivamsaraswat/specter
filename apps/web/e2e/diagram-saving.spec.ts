@@ -73,10 +73,14 @@ test('undoes a change the server refuses, and says why', async ({ page, baseURL 
   const { token, modelId } = await open(page, base);
   const before = await positionOnDiagram(nodeOf(page, 'Worker'));
 
-  await page.route(BATCH, (route) =>
-    route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Operation 0: layout: Too big' }) }),
-  );
-  await dragBy(page, nodeOf(page, 'Worker'), 140, 80);
+  let refused = 0;
+  await page.route(BATCH, (route) => {
+    refused += 1;
+    return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Operation 0: layout: Too big' }) });
+  });
+  // The server's refusal puts the node back where it was, so the drag worked if the save was sent, not if the
+  // node stayed at its target.
+  await dragBy(page, nodeOf(page, 'Worker'), 140, 80, () => expect.poll(() => refused, { timeout: 2000 }).toBeGreaterThan(0));
 
   await expect(page.getByRole('alert')).toContainText('That change was not saved: Operation 0: layout: Too big');
   await expect(saved(page)).toBeVisible();

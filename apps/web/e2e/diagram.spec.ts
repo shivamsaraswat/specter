@@ -31,7 +31,10 @@ test('draws a diagram, and it is there after a reload', async ({ page, baseURL }
   await addNode(page, 'Add process', 'Worker');
   await addNode(page, 'Add data store', 'DB');
 
-  // A connection let go on empty space makes nothing, and says why (FR-003).
+  // A connection let go on empty space makes nothing, and says why (FR-003). The view fits itself to the new
+  // nodes first, and the handle is only where it seems to be once they have stopped moving.
+  await untilStill(nodeOf(page, 'DB'));
+  await untilStill(nodeOf(page, 'Customer'));
   await expect(async () => {
     await canvasOf(page).scrollIntoViewIfNeeded();
     const start = await centerOf(nodeOf(page, 'Customer').locator('.react-flow__handle[data-handleid="top"]'));
@@ -42,7 +45,7 @@ test('draws a diagram, and it is there after a reload', async ({ page, baseURL }
     // can slide an element under the pointer. The elements are in the middle, so this corner is empty.
     await page.mouse.move(canvasBox.x + 90, canvasBox.y + 90, { steps: 12 });
     await page.mouse.up();
-    await expect(page.getByRole('alert')).toContainText('A data flow must connect two different external entities, processes or data stores.', { timeout: 1500 });
+    await expect(page.getByRole('alert')).toContainText('A data flow must connect two different external entities, processes or data stores.', { timeout: 3000 });
   }).toPass(GESTURE);
   // Fit to view brings every element back into view (FR-005).
   await page.getByRole('button', { name: 'Fit to view' }).click();
