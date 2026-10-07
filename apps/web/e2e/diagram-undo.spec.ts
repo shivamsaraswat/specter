@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { addNode, canvasOf, connect, dragBy, nodeOf, untilSaved, untilStill } from './diagram-helpers.js';
+import { addNode, canvasOf, connect, deleteFromList, dragBy, nodeOf, untilSaved, untilStill } from './diagram-helpers.js';
 import { apiRequest, apiToken, expect, seedElements, seedModel, signInAsNewAccount, test } from './fixtures.js';
 
 // US7, spec FR-024 to FR-024d, SC-010: twenty varied changes are taken back one at a time, and put back one
@@ -81,12 +81,7 @@ async function twentyChanges(page: Page): Promise<void> {
   await select('Partner');
   await deleteSelected(true);
   await expect(nodeOf(page, 'Partner')).toBeHidden();
-  const elements = page.getByRole('navigation', { name: 'Elements' });
-  await elements.getByRole('button', { name: 'Data flow: Sync' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page.getByLabel('Name')).toHaveValue('Sync');
-  await page.keyboard.press('Delete');
-  await expect(elements.getByRole('button', { name: 'Data flow: Sync' })).toBeHidden();
+  await deleteFromList(page, 'Data flow: Sync', 'Sync');
   await select('VPC');
   await deleteSelected(false);
   await expect(nodeOf(page, 'VPC')).toBeHidden();

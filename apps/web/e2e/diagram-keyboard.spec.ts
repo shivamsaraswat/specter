@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { stored, untilStill, canvasOf, nodeOf } from './diagram-helpers.js';
+import { stored, untilStill, canvasOf, deleteFromList, nodeOf } from './diagram-helpers.js';
 import { apiToken, expect, seedModel, signInAsNewAccount, test } from './fixtures.js';
 
 // US5, spec FR-025, FR-026, SC-006: the same diagram can be built and changed with the keyboard alone.
@@ -95,12 +95,8 @@ test('builds and changes a diagram with the keyboard alone', async ({ page, base
 
   // Delete the flow: choose it from the list, press Delete. A flow has nothing else to take with it, so there
   // is no question (FR-021).
-  await page.getByRole('navigation', { name: 'Elements' }).getByRole('button', { name: 'Data flow: Query' }).focus();
-  await press(page, 'Enter');
-  await expect(page.getByLabel('Name')).toHaveValue('Query');
-  await press(page, 'Delete');
+  await deleteFromList(page, 'Data flow: Query', 'Query');
   await expect.poll(async () => (await stored(base, token, modelId)).byName.has('Query')).toBe(false);
-  await expect(page.getByRole('navigation', { name: 'Elements' }).getByRole('button', { name: 'Data flow: Query' })).toBeHidden();
   await expect(page.getByText('Select an element to see its properties')).toBeVisible();
 
   // After a reload it is all there.
