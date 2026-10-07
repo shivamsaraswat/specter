@@ -1,21 +1,29 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.6.0 → 1.6.1
-Rationale: Phase 1 / Milestone 7 (specs/007-open-source-hygiene) adds the repository's public-facing
-  documents: LICENSE (Apache-2.0), SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, issue forms and a
-  pull request template. Governance lists where implementation-level how-to guidance belongs, so
-  CONTRIBUTING.md and SECURITY.md join that list. This is a PATCH: a list addition for clarity, with
-  no principle, rule or gate added, changed or removed. A dependency license check was also added to
-  the existing required `lint` check; it is documented in docs/ci.md, not here, because writing it
-  into Principle II or the Development Workflow would be a rule change and a MINOR bump.
-Modified principles: none
+Version change: 1.6.2 → 1.7.0
+Rationale: Phase 2 Milestone 1 (the data-flow diagram editor, specs/phase-2/milestone-1-dfd-editor/) adds an
+  entry point to /api/v1, POST /api/v1/threat-models/{id}/elements/batch, which applies up to 200 element
+  writes to one threat model in a single transaction, and it narrows what an element's `properties` and
+  `layout` may hold (a fixed vocabulary, validated on every write) and limits a threat model to 1,000
+  elements, in the database. Principle V requires the Threat Model section to be updated for a new entry
+  point in the same change. This is a MINOR: it adds to the Threat Model section's entry points and
+  mitigations, as Phase 1 Milestones 5 and 6 did, and adds or changes no principle.
+Modified principles: none (Principle V's rule is applied, not changed)
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
-Threat Model changes: none. The milestone adds no asset, entry point or trust boundary: the new
-  documents are static, the license check runs offline inside the existing `lint` job, and the web
-  build's third-party notices file (dist/.vite/license.md) ships in the image and is not served.
+Threat Model changes:
+  - Trust boundaries (current): the batch endpoint is named among the /api/v1 entry points; it is in the same
+    trust tier as the single-record element endpoints.
+  - Tampering: Mitigated (Phase 2 Milestone 1): element properties and layout are validated against a fixed
+    vocabulary on every write, by one shared schema that the single-record and batch endpoints both use.
+  - Denial of Service: Partially mitigated (Phase 2 Milestone 1): at most 1,000 elements per threat model,
+    enforced by a database trigger, and at most 200 operations per batch.
+  - Elevation of Privilege: no widening. The batch endpoint grants nothing the single-record endpoints do not:
+    any authenticated account could already create, change and delete every element.
+  - Deleting a trust boundary now keeps its members (they move up to its parent) where it used to leave them
+    with no parent: stated in API.md, with no new asset or entry point.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -169,12 +177,12 @@ they ship.
 **Assets (current)**: user credentials (`users.password_hash`); the JWT signing secret; database
 credentials; issued JWTs (bearer tokens) held by clients; the CI/CD pipeline's own integrity — the
 `GITHUB_TOKEN`, third-party GitHub Actions steps, the base and service container images it pulls
-(Phase 1 Milestone 2, `specs/002-ci-pipeline/`), and, since Phase 1 Milestone 6, the Playwright browser
+(Phase 1 Milestone 2, `specs/phase-1/milestone-2-ci-pipeline/`), and, since Phase 1 Milestone 6, the Playwright browser
 binaries and system packages the `test` job downloads; threat-model records — projects, threat models,
-elements, threats and mitigations (Phase 1 Milestone 3, `specs/003-domain-schema/`), stored in the
-database and, since Phase 1 Milestone 5 (`specs/005-rest-api-v1/`), readable and writable by any
+elements, threats and mitigations (Phase 1 Milestone 3, `specs/phase-1/milestone-3-domain-schema/`), stored in the
+database and, since Phase 1 Milestone 5 (`specs/phase-1/milestone-5-rest-api-v1/`), readable and writable by any
 authenticated account through `/api/v1`; browser sessions (`browser_sessions`, Phase 1 Milestone 6,
-`specs/006-react-app-shell/`), whose session credentials are stored only as SHA-256 digests, the
+`specs/phase-1/milestone-6-react-app-shell/`), whose session credentials are stored only as SHA-256 digests, the
 short-lived access tokens the UI holds in page memory, and the sign-in failure counts
 (`sign_in_throttle`), whose keys are HMACs of what was typed and of the client address. The original
 threat entry records and Milestone 4's legacy links no longer exist: Milestone 5 removed them.
@@ -186,7 +194,9 @@ webhook targets.
 
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
-`/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document), where everything but login and
+`/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document; since Phase 2 Milestone 1 `/api/v1`
+includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request),
+where everything but login and
 session sign-in sits behind authentication: a bearer token for `/api/users` and `/api/v1`, the session
 cookie for the rest of `/api/session`. Since Phase 1 Milestone 6 the same app also serves the web app
 the browser loads (`apps/api/src/web.ts`, with a strict CSP), so a browser → UI boundary exists, and
@@ -229,7 +239,13 @@ webhooks.
   `X-Forwarded-Host` only from a trusted proxy) and a JSON content type, which forces a CORS
   preflight the app never answers. *Planned*: from Phase 3, AI-proposed edits are a new
   tampering-like surface if they could reach the model without review; mitigated by Principle
-  VI's mandatory human-accept step. *Accepted risk (Phase 1 Milestone 6)*: the required `test` job downloads Playwright's browser
+  VI's mandatory human-accept step. *Mitigated (Phase 2 Milestone 1)*: an element's `properties` and
+  `layout` are validated against a fixed vocabulary on every write (tags up to 20, 50 characters each;
+  flags that belong to the element's type; positions in a fixed range; no other keys), by one schema in
+  `packages/core` that the single-record endpoints and the batch endpoint share, and a batch is
+  applied in one transaction, so a refused operation leaves nothing half-written. The editor draws
+  every element name and tag as text, never as markup, under the same strict CSP.
+  *Accepted risk (Phase 1 Milestone 6)*: the required `test` job downloads Playwright's browser
   binaries and system packages from outside the repository, pinned only by the lockfile's
   `@playwright/test` version, which Dependabot's cooldown and pnpm's `minimumReleaseAge` cover.
   *Mitigated (Phase 1 Milestone 2)*: every third-party GitHub
@@ -286,10 +302,14 @@ webhooks.
   removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint.
 - **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
-  specs/005-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
+  specs/phase-1/milestone-5-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
   account, so the throttle cannot be used to lock a user out; behind a load balancer `TRUST_PROXY`
   must be set, or every client shares the balancer's address and the per-address limit applies to
-  everyone at once. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
+  everyone at once. *Partially mitigated (Phase 2 Milestone 1)*: a threat model holds at most 1,000
+  elements, enforced by a database trigger that every writer passes through, and a batch carries at most 200
+  operations, so a single request cannot make an unbounded write; the model lock a write takes
+  (`FOR NO KEY UPDATE` on the threat model row) queues writers to one model without blocking reads or other
+  models. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
   rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
@@ -308,6 +328,9 @@ webhooks.
   (`contents: read`); only the CodeQL job is granted the additional `security-events: write` it
   needs, and only for itself. The merge-gate ruleset on `main` has no bypass actors — no one,
   including repository admins, can merge or push around a failing or missing required check.
+  *No widening (Phase 2 Milestone 1)*: the batch endpoint is in the same trust tier as the
+  single-record element endpoints and can do nothing they cannot, and it cannot reach across threat models:
+  an operation on an element of another model is the same as one on a missing element.
 
 Any change that adds an endpoint, a new external integration, or a new credential type MUST add
 or update a bullet above in the same PR, whether or not the surrounding phase has been reached.
@@ -348,4 +371,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.6.1 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-06
+**Version**: 1.7.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-08

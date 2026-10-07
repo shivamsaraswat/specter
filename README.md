@@ -4,7 +4,7 @@ An open-source, self-hosted threat modeling platform, in early development.
 
 The goal: give Specter the context of a project (design docs, a repository, Jira/Confluence) and get a threat model back, or build one by hand on a data-flow diagram. Both paths produce the same threat model, AI suggestions are always drafts with citations that a human accepts or rejects, and you bring your own LLM, including a fully local one, so nothing has to leave your network.
 
-> **Current status: Phase 1 complete.** Today Specter is an API and a small web app for STRIDE threat models: sign in, manage projects and threat models, and create, edit and delete threats and their mitigations (Node.js + Express, React, PostgreSQL), already deployable to AWS. The diagram editor and rule-generated threats are Phase 2. Roadmap phases not marked ✅ are planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
+> **Current status: Phase 2 in progress; the data-flow diagram editor has landed.** Today Specter is an API and a web app for STRIDE threat models: sign in, manage projects and threat models, draw the system as a data-flow diagram (processes, data stores, external entities, data flows and trust boundaries, with undo and redo, saved as you go), and create, edit and delete threats and their mitigations (Node.js + Express, React, PostgreSQL), already deployable to AWS. Rule-generated threats, reports and import/export are the rest of Phase 2. Roadmap phases not marked ✅ are planned, not built. The run instructions, environment variables and API documented here describe the app as it exists now.
 
 ## Roadmap
 
@@ -67,7 +67,7 @@ This is a pnpm workspace. The packages are:
 | Package | What it holds |
 | --- | --- |
 | `apps/api` | The Express API. It also serves the built web app, and holds the browser-session endpoints |
-| `apps/web` | The React web app: sign-in, projects, threat models, threats and mitigations. Built with Vite, tested with Vitest and Playwright |
+| `apps/web` | The React web app: sign-in, projects, threat models, the data-flow diagram editor (React Flow), threats and mitigations. Built with Vite, tested with Vitest and Playwright |
 | `packages/db` | The forward-only SQL migrations (the threat-model schema), the migration runner, and the tests that check the schema's integrity rules against a real Postgres |
 | `packages/core` | The shared definitions of projects, threat models, elements, threats and mitigations (Zod schemas, value lists, risk scoring). It has no Node.js dependencies, so the web app can use it too |
 

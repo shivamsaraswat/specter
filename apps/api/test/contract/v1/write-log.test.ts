@@ -129,4 +129,58 @@ describe('the write log (FR-014a)', () => {
       log.restore();
     }
   });
+  describe('the batch endpoint (FR-030, research #5)', () => {
+    async function newModel(): Promise<string> {
+      const project = (await c.post<ApiRecord>('/projects', { name: uniqueName('BatchLog') })).body;
+      return (await c.post<ApiRecord>('/threat-models', { project_id: project.id, name: 'M' })).body.id;
+    }
+    const batch = (model: string, operations: unknown[]) => c.post(`/threat-models/${model}/elements/batch`, { operations });
+
+    it('writes one line per element created, updated or deleted, and none for the batch itself', async () => {
+      const model = await newModel();
+      const existing = (await c.post<ApiRecord>('/elements', { threat_model_id: model, type: 'process', name: 'Old' })).body.id;
+      const doomed = (await c.post<ApiRecord>('/elements', { threat_model_id: model, type: 'process', name: 'Doomed' })).body.id;
+      const first = randomUUID();
+      const second = randomUUID();
+      const marker = uniqueName('SECRET-NAME');
+
+      const log = captureWriteLog();
+      try {
+        const res = await batch(model, [
+          { op: 'create', element: { id: first, type: 'process', name: marker, properties: { tags: [marker.slice(0, 40)] } } },
+          { op: 'create', element: { id: second, type: 'data_store', name: 'DB' } },
+          { op: 'update', id: existing, changes: { name: marker } },
+          { op: 'delete', id: doomed },
+        ]);
+        expect(res.status).toBe(200);
+
+        const lines = log.lines().map(({ action, type, id }) => `${action} ${type} ${id}`).sort();
+        expect(lines).toEqual(
+          [`create element ${first}`, `create element ${second}`, `update element ${existing}`, `delete element ${doomed}`].sort(),
+        );
+        expect(log.lines().every((l) => l.account_id === accountId)).toBe(true);
+        expect(log.lines().some((l) => l.id === model)).toBe(false);
+        // Ids only: a name, a tag or any other field value can never reach the log.
+        expect(log.raw().join('\n')).not.toContain('SECRET-NAME');
+        expect(log.lines().every((l) => Object.keys(l).sort().join() === 'account_id,action,event,id,type')).toBe(true);
+      } finally {
+        log.restore();
+      }
+    });
+
+    it('writes no line at all when the batch is rejected, even if earlier operations had succeeded', async () => {
+      const model = await newModel();
+      const log = captureWriteLog();
+      try {
+        const res = await batch(model, [
+          { op: 'create', element: { type: 'process', name: 'Would be logged' } },
+          { op: 'update', id: randomUUID(), changes: { name: 'Nobody' } },
+        ]);
+        expect(res.status).toBe(404);
+        expect(log.raw()).toEqual([]);
+      } finally {
+        log.restore();
+      }
+    });
+  });
 });

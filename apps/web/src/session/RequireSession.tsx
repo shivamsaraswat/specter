@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
+import { ReauthDialog } from './ReauthDialog.js';
 import { useSession } from './SessionProvider.js';
 
 // Guards every page but sign-in. A signed-out visitor goes to /login, and the page they asked for is
@@ -10,6 +11,15 @@ export function RequireSession() {
   if (status === 'checking') return <p className="page">Loading…</p>;
   if (status === 'signed-out') {
     return <Navigate to="/login" replace state={explicitSignOut ? undefined : { from: location }} />;
+  }
+  // The session ended while there was unsaved work: the page stays, and the same account signs in again over it.
+  if (status === 'reauth-required') {
+    return (
+      <>
+        <Outlet />
+        <ReauthDialog />
+      </>
+    );
   }
   return <Outlet />;
 }

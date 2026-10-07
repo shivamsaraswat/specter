@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- What changed and why, in a few bullets. Link the issue (`Closes #123`) or the spec (`specs/NNN-name/`). -->
+<!-- What changed and why, in a few bullets. Link the issue (`Closes #123`) or the spec (`specs/phase-N/milestone-M-name/`). -->
 
 ## How this satisfies Principles I–VI
 

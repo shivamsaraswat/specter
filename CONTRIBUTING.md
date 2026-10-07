@@ -12,8 +12,9 @@ vulnerability, read [SECURITY.md](SECURITY.md) and **never** open a public issue
 - **Open an issue first** for anything larger than a small fix, so we can agree on the approach
   before you spend time on it. Use the bug report or feature request form.
 - **Larger features are specified before they are built.** Each milestone has a folder under
-  [`specs/`](specs/) with its spec, plan and tasks (for example `specs/006-react-app-shell/`). Read a
-  recent one to see the shape. A feature request is the place to start that conversation.
+  [`specs/`](specs/), grouped by roadmap phase (`specs/phase-<N>/milestone-<M>-<name>/`), with its
+  spec, plan and tasks (for example `specs/phase-1/milestone-6-react-app-shell/`). Read a recent
+  one to see the shape. A feature request is the place to start that conversation.
 - **Stay within the current phase.** The roadmap is in the README's [Roadmap](README.md#roadmap).
   Specter is built phase by phase, and work on a later phase's features is not accepted while an
   earlier phase is in progress.

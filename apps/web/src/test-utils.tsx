@@ -1,14 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { MemoryRouter } from 'react-router';
+import { RouterProvider, createMemoryRouter } from 'react-router';
 import { vi } from 'vitest';
-import { AppRoutes } from './App.js';
+import { appRoutes } from './App.js';
 import { clearAccessToken } from './api/session.js';
-import { SessionProvider } from './session/SessionProvider.js';
 
-// Shared by the page tests: a fake API behind `fetch`, and the app's real routes in a MemoryRouter
-// with a signed-in session. Not a test file, so Vitest doesn't collect it.
+// Shared by the page tests: a fake API behind `fetch`, and the app's real routes in a memory data
+// router with a signed-in session. Not a test file, so Vitest doesn't collect it.
 
 export function json(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -81,11 +80,7 @@ export function renderApp(route: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[route]}>
-        <SessionProvider>
-          <AppRoutes />
-        </SessionProvider>
-      </MemoryRouter>
+      <RouterProvider router={createMemoryRouter(appRoutes, { initialEntries: [route] })} />
     </QueryClientProvider>,
   );
 }

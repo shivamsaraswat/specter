@@ -29,6 +29,7 @@ const OPERATION_IDS = [
   'getElement',
   'updateElement',
   'deleteElement',
+  'batchElements',
   'createThreat',
   'getThreat',
   'updateThreat',
@@ -136,7 +137,7 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       for (const { path } of operationsOf(doc())) expect(path.startsWith('/api/v1/'), path).toBe(true);
     });
 
-    it('describes exactly the 27 operations of the contract', () => {
+    it('describes exactly the 28 operations of the contract', () => {
       const ids = operationsOf(doc()).map(({ op }) => op.operationId);
       expect(ids.sort()).toEqual([...OPERATION_IDS].sort());
     });
@@ -153,6 +154,25 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
         expect(statuses, op.operationId).toEqual(expect.arrayContaining(['401', '500']));
         if (op.requestBody) expect(statuses, op.operationId).toEqual(expect.arrayContaining(['400', '413', '415']));
       }
+    });
+
+    it('documents batchElements with its body, its result and its errors (contracts/elements-batch.md)', () => {
+      const document = doc();
+      const path = document.paths['/api/v1/threat-models/{id}/elements/batch'];
+      const op = path?.post;
+      expect(op?.operationId).toBe('batchElements');
+      expect(op?.requestBody).toBeDefined();
+      expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(['200', '400', '401', '404', '409', '413', '500']));
+      expect(document.components.schemas.ElementBatchInput).toBeDefined();
+      expect(document.components.schemas.ElementBatchResult).toBeDefined();
+      expect(op?.description).toContain('all or none');
+      expect(op?.description).toContain('200');
+    });
+
+    it('states the coordinate frame of layout and the vocabulary of properties', () => {
+      const text = JSON.stringify(doc().components.schemas.ElementCreateInput);
+      expect(text).toContain('relative to the parent boundary');
+      expect(text).toContain('not assessed');
     });
 
     it('documents every operation the router mounts, under the same id', () => {

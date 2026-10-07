@@ -1306,6 +1306,116 @@
         }
       }
     },
+    "/api/v1/threat-models/{id}/elements/batch": {
+      "post": {
+        "operationId": "batchElements",
+        "summary": "Create, update and delete several elements of one threat model, all or none",
+        "description": "Applies up to 200 operations, in order, in one transaction: all or none are stored. Every element must belong to the threat model in the path. A create may choose its own id. The result lists each created or updated element once, in its final state, and the ids deleted. An error caused by one operation names its position, counted from 0. Positions (layout) are relative to the parent boundary.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ElementBatchInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ElementBatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "There is no valid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 100 kb",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content encoding is not supported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/threats": {
       "post": {
         "operationId": "createThreat",
@@ -2195,7 +2305,8 @@
             },
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
-            }
+            },
+            "description": "Technology tags and security flags: { \"tags\"?: string[], \"flags\"?: { \"<flag>\": boolean } }. The flags allowed depend on the element type. A flag that is absent means \"not assessed\"; false means \"no\". Anything else is rejected on write."
           },
           "layout": {
             "default": null,
@@ -2212,7 +2323,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "null (not placed yet), or the position: { x, y } for a node, { x, y, width, height } for a trust boundary, and null only for a data flow. x and y are relative to the parent boundary, or to the diagram origin when the element has no parent boundary."
           },
           "source_element_id": {
             "default": null,
@@ -2286,7 +2398,8 @@
             },
             "additionalProperties": {
               "$ref": "#/components/schemas/JsonValue"
-            }
+            },
+            "description": "Technology tags and security flags: { \"tags\"?: string[], \"flags\"?: { \"<flag>\": boolean } }. The flags allowed depend on the element type. A flag that is absent means \"not assessed\"; false means \"no\". Anything else is rejected on write."
           },
           "layout": {
             "anyOf": [
@@ -2302,7 +2415,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "null (not placed yet), or the position: { x, y } for a node, { x, y, width, height } for a trust boundary, and null only for a data flow. x and y are relative to the parent boundary, or to the diagram origin when the element has no parent boundary."
           },
           "source_element_id": {
             "anyOf": [
@@ -2341,6 +2455,178 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "ElementBatchInput": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "create"
+                    },
+                    "element": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "external_entity",
+                            "process",
+                            "data_store",
+                            "data_flow",
+                            "trust_boundary"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "properties": {
+                          "default": {},
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/JsonValue"
+                          },
+                          "description": "Technology tags and security flags: { \"tags\"?: string[], \"flags\"?: { \"<flag>\": boolean } }. The flags allowed depend on the element type. A flag that is absent means \"not assessed\"; false means \"no\". Anything else is rejected on write."
+                        },
+                        "layout": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {
+                                "$ref": "#/components/schemas/JsonValue"
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "null (not placed yet), or the position: { x, y } for a node, { x, y, width, height } for a trust boundary, and null only for a data flow. x and y are relative to the parent boundary, or to the diagram origin when the element has no parent boundary."
+                        },
+                        "source_element_id": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "target_element_id": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "parent_boundary_id": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "element"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "update"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changes": {
+                      "$ref": "#/components/schemas/ElementUpdateInput"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id",
+                    "changes"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "const": "delete"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "operations"
+        ],
         "additionalProperties": false
       },
       "ThreatCreateInput": {
@@ -2955,6 +3241,30 @@
           "external_ref",
           "created_at",
           "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "ElementBatchResult": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ElementRecord"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        },
+        "required": [
+          "elements",
+          "deleted"
         ],
         "additionalProperties": false
       },

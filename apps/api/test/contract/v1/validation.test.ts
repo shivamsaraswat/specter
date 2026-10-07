@@ -89,7 +89,7 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
   }
 
   it('covers every resource operation', () => {
-    expect(resourceOperations).toHaveLength(26);
+    expect(resourceOperations).toHaveLength(27);
   });
 
   describe('path ids', () => {
@@ -117,7 +117,8 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
     });
 
     it('answers 404, naming the entity, for a well-formed id that matches nothing', async () => {
-      for (const op of resourceOperations.filter((o) => o.path.includes(':id'))) {
+      // The batch endpoint needs a valid body to get past validation; elements-batch.test.ts covers its 404.
+      for (const op of resourceOperations.filter((o) => o.path.includes(':id') && o.operationId !== 'batchElements')) {
         const key = resourceOf(op.path);
         const res = await c.raw(withId(op.path, randomUUID()), {
           method: op.method.toUpperCase(),
@@ -182,6 +183,10 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
       ['elements', 'name', tooLong(200)],
       ['elements', 'type', MARKER],
       ['elements', 'properties', MARKER],
+      ['elements', 'properties', { MARKER }],
+      ['elements', 'properties', { flags: { MARKER: true } }],
+      ['elements', 'properties', { flags: { runs_privileged: MARKER } }],
+      ['elements', 'layout', { x: 1, y: 2, MARKER: 3 }],
       ['threats', 'title', tooLong(200)],
       ['threats', 'category', MARKER],
       ['threats', 'likelihood', MARKER],

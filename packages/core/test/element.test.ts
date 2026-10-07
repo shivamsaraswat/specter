@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { ElementCreateInput, ElementInputBase, ElementRecord, ElementUpdateInput } from '../src/index.js';
+import {
+  ElementBatchInput,
+  ElementBatchResult,
+  ElementCreateInput,
+  ElementInputBase,
+  ElementRecord,
+  ElementUpdateInput,
+  MAX_ELEMENTS,
+} from '../src/index.js';
 
 const model = randomUUID();
 const valid = { threat_model_id: model, type: 'process', name: 'API' };
@@ -34,9 +42,20 @@ describe('ElementCreateInput', () => {
     expect(ElementCreateInput.safeParse({ ...valid, layout: null }).success).toBe(true);
   });
 
-  it('accepts nested JSON in properties', () => {
-    const properties = { a: { b: [1, null, 'x'] }, tags: ['db', 'pii'] };
-    expect(ElementCreateInput.parse({ ...valid, properties }).properties).toEqual(properties);
+  it('validates properties for the element type (FR-017)', () => {
+    const properties = { tags: ['db', 'pii'], flags: { stores_sensitive_data: true, encrypted_at_rest: false } };
+    expect(ElementCreateInput.parse({ ...valid, type: 'data_store', properties }).properties).toEqual(properties);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'data_store', properties: { color: 'red' } }).success).toBe(false);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'data_store', properties: { flags: { runs_privileged: true } } }).success).toBe(false);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'trust_boundary', properties: { flags: { internet_facing: true } } }).success).toBe(false);
+  });
+
+  it('validates layout for the element type', () => {
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'process', layout: { x: 1, y: 2 } }).success).toBe(true);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'process', layout: { x: 1, y: 2, width: 90, height: 90 } }).success).toBe(false);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'trust_boundary', layout: { x: 1, y: 2 } }).success).toBe(false);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'trust_boundary', layout: { x: 1, y: 2, width: 90, height: 90 } }).success).toBe(true);
+    expect(ElementCreateInput.safeParse({ ...valid, type: 'data_flow', layout: { x: 1, y: 2 } }).success).toBe(false);
   });
 
   it.each(['id', 'created_at', 'updated_at', 'foo'])('rejects %s', (key) => {
@@ -81,5 +100,80 @@ describe('ElementRecord', () => {
       updated_at: '2026-10-04T10:00:00.000Z',
     };
     expect(ElementRecord.parse(row)).toEqual(row);
+  });
+});
+
+describe('ElementRecord (legacy rows stay readable)', () => {
+  it('parses a row whose properties and layout are outside the vocabulary (research #3)', () => {
+    const row = {
+      id: randomUUID(),
+      ...valid,
+      properties: { color: 'red', nested: { a: [1] } },
+      layout: { anything: 1 },
+      source_element_id: null,
+      target_element_id: null,
+      parent_boundary_id: null,
+      created_at: '2026-10-04T10:00:00.000Z',
+      updated_at: '2026-10-04T10:00:00.000Z',
+    };
+    expect(ElementRecord.parse(row)).toEqual(row);
+  });
+});
+
+describe('ElementBatchInput', () => {
+  const op = { op: 'create', element: { type: 'process', name: 'API' } } as const;
+  const many = (n: number) => Array.from({ length: n }, () => op);
+
+  it('accepts 1 to 200 operations and applies the create defaults', () => {
+    const parsed = ElementBatchInput.parse({ operations: [op] });
+    expect(parsed.operations[0]).toEqual({
+      op: 'create',
+      element: { type: 'process', name: 'API', properties: {}, layout: null, source_element_id: null, target_element_id: null, parent_boundary_id: null },
+    });
+    expect(ElementBatchInput.safeParse({ operations: many(200) }).success).toBe(true);
+  });
+
+  it('rejects 0 and 201 operations', () => {
+    expect(ElementBatchInput.safeParse({ operations: [] }).success).toBe(false);
+    expect(ElementBatchInput.safeParse({ operations: many(201) }).success).toBe(false);
+  });
+
+  it('accepts a create with its own id, and rejects threat_model_id in it', () => {
+    const id = randomUUID();
+    expect(ElementBatchInput.parse({ operations: [{ op: 'create', element: { id, type: 'process', name: 'A' } }] }).operations[0]).toMatchObject({ element: { id } });
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'create', element: { threat_model_id: model, type: 'process', name: 'A' } }] }).success).toBe(false);
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'create', element: { id: 'x', type: 'process', name: 'A' } }] }).success).toBe(false);
+  });
+
+  it('validates a create element for its type', () => {
+    const bad = { op: 'create', element: { type: 'data_store', name: 'DB', properties: { flags: { runs_privileged: true } } } };
+    expect(ElementBatchInput.safeParse({ operations: [bad] }).success).toBe(false);
+  });
+
+  it('takes an update with an id and at least one change, and a delete with an id', () => {
+    const id = randomUUID();
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'update', id, changes: { name: 'B' } }] }).success).toBe(true);
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'update', id, changes: {} }] }).success).toBe(false);
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'update', id: 'x', changes: { name: 'B' } }] }).success).toBe(false);
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'delete', id }] }).success).toBe(true);
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'delete' }] }).success).toBe(false);
+  });
+
+  it('rejects an unknown op and unknown top-level keys', () => {
+    expect(ElementBatchInput.safeParse({ operations: [{ op: 'move', id: randomUUID() }] }).success).toBe(false);
+    expect(ElementBatchInput.safeParse({ operations: [op], extra: 1 }).success).toBe(false);
+  });
+});
+
+describe('ElementBatchResult', () => {
+  it('is { elements, deleted }', () => {
+    expect(ElementBatchResult.parse({ elements: [], deleted: [randomUUID()] }).elements).toEqual([]);
+    expect(ElementBatchResult.safeParse({ elements: [] }).success).toBe(false);
+  });
+});
+
+describe('MAX_ELEMENTS', () => {
+  it('is 1,000 (FR-001a)', () => {
+    expect(MAX_ELEMENTS).toBe(1000);
   });
 });

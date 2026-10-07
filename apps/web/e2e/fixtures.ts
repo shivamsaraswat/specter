@@ -31,12 +31,27 @@ export async function watchPage(page: Page, origin: string): Promise<PageWatch> 
   };
 }
 
-export const test = base.extend({
+// Projects a test made through seedModel, deleted when the test is over so the shared dev database does not
+// fill up with them (a project list that grows with every run slows every page that shows it). A worker runs
+// one test at a time, so a list here belongs to the test that is running.
+const madeByTest: { base: string; token: string; projectId: string }[] = [];
+
+export const test = base.extend<{ cleanUp: void }>({
   page: async ({ page, baseURL }, use) => {
     const watch = await watchPage(page, new URL(baseURL ?? 'http://localhost').origin);
     await use(page);
     watch.assertClean();
   },
+  cleanUp: [
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, use) => {
+      await use();
+      for (const { base: origin, token, projectId } of madeByTest.splice(0)) {
+        await apiRequest(origin, token, 'DELETE', `/api/v1/projects/${projectId}`).catch(() => undefined);
+      }
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };
@@ -72,4 +87,73 @@ export async function createTestAccount(baseURL: string): Promise<TestAccount> {
   });
   if (res.status !== 201) throw new Error(`Could not create a test account: status ${res.status}`);
   return { username, password };
+}
+
+// ---- Phase 2 / Milestone 1: seeding diagrams through the API ----
+
+export async function apiRequest(
+  baseURL: string,
+  token: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const res = await fetch(`${baseURL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  return { status: res.status, body: text ? (JSON.parse(text) as unknown) : null };
+}
+
+async function create(baseURL: string, token: string, path: string, body: unknown): Promise<{ id: string }> {
+  const res = await apiRequest(baseURL, token, 'POST', path, body);
+  if (res.status !== 201) throw new Error(`Seeding ${path} failed with status ${res.status}: ${JSON.stringify(res.body)}`);
+  return res.body as { id: string };
+}
+
+// A new project with one threat model, named so a leftover can be told from real data.
+export async function seedModel(baseURL: string, token: string, label: string): Promise<{ projectId: string; modelId: string }> {
+  const stamp = `${Date.now()}-${randomUUID().slice(0, 6)}`;
+  const project = await create(baseURL, token, '/api/v1/projects', { name: `m-p2-${label}-${stamp}`, description: '' });
+  const model = await create(baseURL, token, '/api/v1/threat-models', { project_id: project.id, name: `${label} ${stamp}` });
+  madeByTest.push({ base: baseURL, token, projectId: project.id });
+  return { projectId: project.id, modelId: model.id };
+}
+
+export interface SeededElement {
+  id: string;
+  name: string;
+  type: string;
+}
+
+// Writes elements through the batch endpoint, at most 200 per request. Each `create` should carry its
+// own `id` so a later operation (a flow, a member) can refer to it.
+export async function seedElements(
+  baseURL: string,
+  token: string,
+  modelId: string,
+  operations: unknown[],
+): Promise<SeededElement[]> {
+  const seeded: SeededElement[] = [];
+  for (let i = 0; i < operations.length; i += 200) {
+    const res = await apiRequest(baseURL, token, 'POST', `/api/v1/threat-models/${modelId}/elements/batch`, {
+      operations: operations.slice(i, i + 200),
+    });
+    if (res.status !== 200) throw new Error(`Seeding elements failed with status ${res.status}: ${JSON.stringify(res.body)}`);
+    seeded.push(...(res.body as { elements: SeededElement[] }).elements);
+  }
+  return seeded;
+}
+
+// Signs the page in as a fresh account of its own, so ending sessions can never affect another test.
+export async function signInAsNewAccount(page: Page, baseURL: string): Promise<TestAccount> {
+  const account = await createTestAccount(baseURL);
+  await page.goto('/login');
+  await page.getByLabel('Username').fill(account.username);
+  await page.getByLabel('Password').fill(account.password);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  return account;
 }
