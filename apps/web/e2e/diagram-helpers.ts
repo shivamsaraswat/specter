@@ -39,23 +39,27 @@ export async function centerOf(locator: Locator): Promise<{ x: number; y: number
 export const GESTURE = { timeout: 20_000, intervals: [100, 300] };
 
 // Drags a node or a boundary's label by (dx, dy) on the screen. A retry aims at the same end point, so a
-// gesture that half worked does not move it twice.
-export async function dragBy(page: Page, node: Locator, dx: number, dy: number): Promise<void> {
+// gesture that half worked does not move it twice. By default the drag has worked if the node ended up near
+// its target. A test where the drag is undone on purpose (a save the server refuses) passes `effect`, which
+// says instead what must have happened, and is the only check made.
+export async function dragBy(page: Page, node: Locator, dx: number, dy: number, effect?: () => Promise<void>): Promise<void> {
   const handle = node.locator('.diagram-node__label, .diagram-boundary__label');
   await canvasOf(page).scrollIntoViewIfNeeded();
   const origin = await centerOf(handle);
   const target = { x: origin.x + dx, y: origin.y + dy };
+  const near = Math.max(12, Math.hypot(dx, dy) * 0.3);
   await expect(async () => {
     const from = await centerOf(handle);
-    if (Math.hypot(from.x - target.x, from.y - target.y) < Math.max(12, Math.hypot(dx, dy) * 0.3)) return;
+    if (!effect && Math.hypot(from.x - target.x, from.y - target.y) < near) return;
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
     await page.mouse.move((from.x + target.x) / 2, (from.y + target.y) / 2, { steps: 5 });
     await page.mouse.move(target.x, target.y, { steps: 5 });
     await page.mouse.up();
+    if (effect) return effect();
     // It clearly moved toward the target. How exactly it lands is what the stored positions then assert.
     const now = await centerOf(handle);
-    expect(Math.hypot(now.x - target.x, now.y - target.y)).toBeLessThan(Math.max(12, Math.hypot(dx, dy) * 0.3));
+    expect(Math.hypot(now.x - target.x, now.y - target.y)).toBeLessThan(near);
   }).toPass(GESTURE);
 }
 
