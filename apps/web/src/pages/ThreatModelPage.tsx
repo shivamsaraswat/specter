@@ -1,14 +1,15 @@
 import { THREAT_MODEL_STATUSES, uuid, type ThreatModelStatus } from '@specter/core';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router';
 import { GONE_MESSAGE, isGone, writeErrorMessage } from '../api/errors.js';
 import { useDeleteThreatModel, useProject, useThreatModel, useUpdateThreatModel } from '../api/queries.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { ErrorSummary } from '../components/ErrorSummary.js';
+import { DiagramEditorProvider } from '../diagram/DiagramEditorProvider.js';
+import { LeaveGuard } from '../diagram/LeaveGuard.js';
 import { FormField } from '../components/FormField.js';
 import { LoadError } from '../components/LoadError.js';
 import { ThreatModelForm } from '../components/ThreatModelForm.js';
-import { ThreatsSection } from '../components/ThreatsSection.js';
 import { NotFoundPage } from './NotFoundPage.js';
 
 const statusLabel = (status: string): string => status.replace('_', ' ');
@@ -123,7 +124,16 @@ function ThreatModelView({ id }: { id: string }) {
           onCancel={() => setConfirming(false)}
         />
       )}
-      <ThreatsSection threatModelId={id} />
+      <nav aria-label="Threat model views" className="tabs">
+        <NavLink to={`/threat-models/${id}/diagram`}>Diagram</NavLink>
+        <NavLink to={`/threat-models/${id}`} end>
+          Threats
+        </NavLink>
+      </nav>
+      <DiagramEditorProvider key={id} threatModelId={id}>
+        <LeaveGuard />
+        <Outlet />
+      </DiagramEditorProvider>
     </div>
   );
 }

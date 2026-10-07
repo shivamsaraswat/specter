@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { MAX_ELEMENTS } from '@specter/core';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -296,5 +298,63 @@ describe('elements: staying in their threat model', () => {
       constraint: 'elements_threat_model_immutable',
     });
     expect(await count('elements', { column: 'threat_model_id', value: modelId })).toBe(1);
+  });
+});
+
+describe('elements: the limit per threat model (FR-001a, 013)', () => {
+  const fill = (model: string, n: number) =>
+    pool().query(
+      `INSERT INTO elements (threat_model_id, type, name) SELECT $1, 'process', 'p' || g FROM generate_series(1, $2::int) g`,
+      [model, n],
+    );
+  const insertOne = () =>
+    pool().query(`INSERT INTO elements (threat_model_id, type, name) VALUES ($1, 'process', 'one-more')`, [modelId]);
+
+  it('allows exactly 1,000 and rejects the 1,001st with elements_limit', async () => {
+    await fill(modelId, 999);
+    await insertOne();
+    expect(await count('elements', { column: 'threat_model_id', value: modelId })).toBe(1000);
+
+    await expectPgError(insertOne(), { code: '23514', constraint: 'elements_limit' });
+    expect(await count('elements', { column: 'threat_model_id', value: modelId })).toBe(1000);
+  });
+
+  it('rejects a bulk insert that would cross the limit as a whole', async () => {
+    await expectPgError(fill(modelId, 1001), { code: '23514', constraint: 'elements_limit' });
+    expect(await count('elements', { column: 'threat_model_id', value: modelId })).toBe(0);
+  });
+
+  it('counts each threat model on its own', async () => {
+    const other = await newModel();
+    await fill(modelId, 1000);
+    await expect(createElement(other, 'process')).resolves.toBeDefined();
+  });
+
+  it('lets two parallel inserts at 999 through only once', async () => {
+    await fill(modelId, 999);
+    const results = await Promise.allSettled([insertOne(), insertOne()]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0]?.reason as { constraint?: string }).constraint).toBe('elements_limit');
+    expect(await count('elements', { column: 'threat_model_id', value: modelId })).toBe(1000);
+  });
+
+  it('does not affect updates and deletes at the limit, and a delete frees a slot', async () => {
+    await fill(modelId, 1000);
+    const { rows } = await pool().query<{ id: string }>('SELECT id FROM elements WHERE threat_model_id = $1 LIMIT 1', [modelId]);
+    const id = rows[0]?.id as string;
+
+    await pool().query(`UPDATE elements SET name = 'renamed' WHERE id = $1`, [id]);
+    await pool().query('DELETE FROM elements WHERE id = $1', [id]);
+    await expect(insertOne()).resolves.toBeDefined();
+  });
+
+  it('keeps the limit in the migration equal to MAX_ELEMENTS in @specter/core', async () => {
+    const sql = await readFile(new URL('../migrations/013_element_limit.sql', import.meta.url), 'utf8');
+    const match = /max_elements\s+CONSTANT\s+integer\s*:=\s*(\d+)/i.exec(sql);
+    expect(match, 'the migration must declare max_elements CONSTANT integer := <n>').not.toBeNull();
+    expect(Number(match?.[1])).toBe(MAX_ELEMENTS);
   });
 });

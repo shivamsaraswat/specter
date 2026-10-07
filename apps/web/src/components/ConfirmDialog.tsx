@@ -4,6 +4,8 @@ interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel: string;
+  // What the safe choice is called; Cancel unless the question reads better with another word.
+  cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -11,7 +13,7 @@ interface ConfirmDialogProps {
 // Asks before something is deleted. It is mounted when needed and built on the native <dialog>, which
 // traps focus while it is open. Focus starts on Cancel, Escape cancels, and focus returns to the
 // control that opened it.
-export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = 'Cancel', onConfirm, onCancel }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
@@ -45,7 +47,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCance
       <p>{message}</p>
       <div className="actions">
         <button type="button" ref={cancelRef} onClick={onCancel}>
-          Cancel
+          {cancelLabel}
         </button>
         <button type="button" className="danger" onClick={onConfirm}>
           {confirmLabel}

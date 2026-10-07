@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import app from '../../../src/app.js';
+import db from '../../../src/db.js';
 import { HttpError, mapStorageError } from '../../../src/v1/errors.js';
 import { login, startTestServer, type TestServer } from '../helpers.js';
 import { captureWriteLog, client, seedChain, uniqueName, type ApiRecord, type Chain, type V1Client } from './helpers.js';
@@ -35,6 +36,8 @@ const MESSAGES = {
   moved: 'A record cannot be moved to another parent',
   origin: 'origin cannot change',
   backstop: 'The request breaks a data rule',
+  limit: 'A threat model can hold at most 1,000 elements',
+  elementId: 'An element with this id already exists',
 };
 
 describe('mapStorageError, row by row', () => {
@@ -65,6 +68,8 @@ describe('mapStorageError, row by row', () => {
     ['23514', 'threats_threat_model_immutable', 'write', 400, MESSAGES.moved],
     ['23514', 'mitigations_threat_immutable', 'write', 400, MESSAGES.moved],
     ['23514', 'threats_origin_immutable', 'write', 400, MESSAGES.origin],
+    ['23514', 'elements_limit', 'write', 400, MESSAGES.limit],
+    ['23505', 'elements_pkey', 'write', 409, MESSAGES.elementId],
     // The backstops: rules the request schemas already enforce, so normally never reached.
     ['23514', 'threats_title_check', 'write', 400, MESSAGES.backstop],
     ['23502', undefined, 'write', 400, MESSAGES.backstop],
@@ -324,6 +329,21 @@ describe('storage rules through the API', () => {
       const res = await client(server.baseUrl, ghost).post('/projects', { name });
       expect(res).toEqual(rejected(MESSAGES.token, 401));
       expect(await projectsNamed(name)).toBe(0);
+    });
+  });
+
+  describe('the element limit (400)', () => {
+    it('answers the 1,001st element with the limit, and stores nothing', async () => {
+      const project = (await c.post<ApiRecord>('/projects', { name: uniqueName('Limit') })).body;
+      const model = (await c.post<ApiRecord>('/threat-models', { project_id: project.id, name: 'Full' })).body;
+      await db.query(
+        `INSERT INTO elements (threat_model_id, type, name) SELECT $1, 'process', 'p' || g FROM generate_series(1, 1000) g`,
+        [model.id],
+      );
+
+      const res = await c.post('/elements', { threat_model_id: model.id, type: 'process', name: 'One too many' });
+      expect(res).toEqual(rejected(MESSAGES.limit));
+      expect(await sizeOf(`/threat-models/${model.id}/elements`)).toBe(1000);
     });
   });
 

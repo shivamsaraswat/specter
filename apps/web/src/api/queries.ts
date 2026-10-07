@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
+  ElementBatchResult,
   ElementRecord,
   MitigationRecord,
   ProjectRecord,
   ThreatModelRecord,
   ThreatRecord,
+  type ElementBatchOperationInput,
   type MitigationCreateInput,
   type MitigationUpdateInput,
   type ProjectCreateInput,
@@ -138,6 +140,33 @@ export function useElements(threatModelId: string) {
   return useQuery({
     queryKey: keys.elements(threatModelId),
     queryFn: () => apiGet(`/api/v1/threat-models/${threatModelId}/elements`, ElementRecord.array()),
+  });
+}
+
+// One request that stores a whole user action: all of its operations, or none (FR-020a). The answer
+// goes straight into the elements the page shows, so the next screen is the server's data. A deleted
+// element takes its data flows with it, as on the server.
+export function useBatchElements(threatModelId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (operations: ElementBatchOperationInput[]) =>
+      apiPost(`/api/v1/threat-models/${threatModelId}/elements/batch`, ElementBatchResult, { operations }),
+    onSuccess: (result) => {
+      client.setQueryData<ElementRecord[]>(keys.elements(threatModelId), (current = []) => {
+        const deleted = new Set(result.deleted);
+        const changed = new Map(result.elements.map((element) => [element.id, element]));
+        const kept = current
+          .filter(
+            (element) =>
+              !deleted.has(element.id) &&
+              !(element.source_element_id !== null && deleted.has(element.source_element_id)) &&
+              !(element.target_element_id !== null && deleted.has(element.target_element_id)),
+          )
+          .map((element) => changed.get(element.id) ?? element);
+        const known = new Set(kept.map((element) => element.id));
+        return [...kept, ...result.elements.filter((element) => !known.has(element.id))];
+      });
+    },
   });
 }
 

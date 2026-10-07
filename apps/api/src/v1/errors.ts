@@ -24,6 +24,8 @@ const MOVED_MESSAGE = 'A record cannot be moved to another parent';
 const DUPLICATES: Record<string, string> = {
   projects_name_key: 'A project with this name already exists',
   threat_models_name_key: 'A threat model with this name already exists in this project',
+  // Only a batch create can reach this: it is the one write that may choose its own element id.
+  elements_pkey: 'An element with this id already exists',
 };
 
 // 23503 on a create or update: a reference that does not hold.
@@ -56,10 +58,18 @@ const BROKEN_RULES: Record<string, string> = {
   threats_threat_model_immutable: MOVED_MESSAGE,
   mitigations_threat_immutable: MOVED_MESSAGE,
   threats_origin_immutable: 'origin cannot change',
+  elements_limit: 'A threat model can hold at most 1,000 elements',
 };
 
 const ELEMENT_HAS_THREATS =
   'This element still has threats, or data flows that would be deleted with it have threats; delete or reassign those threats first';
+
+// An error found while applying operation `index` of a batch says which one it was (contracts/
+// elements-batch.md "Errors"). The message is already a fixed string, so nothing from the request
+// is added to it.
+export function prefixOperation(index: number, err: HttpError): HttpError {
+  return new HttpError(err.status, `Operation ${index}: ${err.message}`);
+}
 
 // An own property only: a constraint name is data from the driver, and "constructor" is not a rule.
 function lookup(table: Record<string, string>, key: string | undefined): string | undefined {

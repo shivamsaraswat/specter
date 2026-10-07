@@ -14,7 +14,7 @@ The web app at `/` uses the same v1 API. Scripts and other API clients use `POST
 | POST | `/api/login` | no | `{username, password}` → `{token}`. After repeated failures it answers `429` ([below](#sign-in-throttling)) |
 | POST | `/api/session`, `/api/session/refresh`, `/api/session/logout`, `/api/session/logout-all` | session cookie | The web app's sign-in and session, [below](#browser-sessions) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
-| | `/api/v1/…` | Bearer | The threat model API: 27 operations, listed [below](#v1-operations) |
+| | `/api/v1/…` | Bearer | The threat model API: 28 operations, listed [below](#v1-operations) |
 
 ## v1 operations
 
@@ -24,7 +24,7 @@ All paths below are under `/api/v1`. Ids are UUIDs.
 | --- | --- |
 | Projects | `GET /projects`, `POST /projects`, `GET`/`PATCH`/`DELETE /projects/{id}`, `GET /projects/{id}/threat-models` |
 | Threat models | `POST /threat-models`, `GET`/`PATCH`/`DELETE /threat-models/{id}`, `GET /threat-models/{id}/elements`, `…/threats`, `…/mitigations` |
-| Elements | `POST /elements`, `GET`/`PATCH`/`DELETE /elements/{id}` |
+| Elements | `POST /elements`, `GET`/`PATCH`/`DELETE /elements/{id}`, `POST /threat-models/{id}/elements/batch` (`batchElements`) |
 | Threats | `POST /threats`, `GET`/`PATCH`/`DELETE /threats/{id}`, `GET /threats/{id}/mitigations` |
 | Mitigations | `POST /mitigations`, `GET`/`PATCH`/`DELETE /mitigations/{id}` |
 | Document | `GET /openapi.json` |
@@ -33,7 +33,8 @@ How they behave:
 
 - **Create** returns `201` with the stored record. A create names its parent in the body (`project_id`, `threat_model_id` or `threat_id`).
 - **Update** is `PATCH`: send only the fields to change. An empty body is rejected, and a record cannot be moved to another parent.
-- **Delete** returns `204` with no body. Deleting a project, threat model or threat also deletes everything inside it. Deleting an element that still has threats is rejected with `409`.
+- **Delete** returns `204` with no body. Deleting a project, threat model or threat also deletes everything inside it. Deleting an element that still has threats is rejected with `409`. Deleting a node also deletes its data flows. Deleting a trust boundary keeps what it holds: its members move up to the boundary's own parent (or to the top level), and each keeps its place on the diagram, because their stored positions are converted to the new frame.
+- **Batch** (`POST /threat-models/{id}/elements/batch`) applies up to 200 element writes to one threat model, all together or none: `{"operations": [{"op":"create","element":{…}}, {"op":"update","id":"…","changes":{…}}, {"op":"delete","id":"…"}]}`. A `create` may carry its own `id` (a UUID), so a later operation in the same request can refer to it. The answer is `{"elements": […], "deleted": […]}`: every element the batch created or changed, once each, in its final state, and the ids it deleted. A failure names the operation by its position in the request, counting from 0 (the first operation is `Operation 0`), as in `Operation 3: …` for the fourth. The diagram editor saves every change through it.
 - **Lists** return every matching record, oldest first, with ties broken by id. They are not paginated. `GET /threat-models/{id}/mitigations` returns the mitigations of every threat in the model in one response, so a whole model loads in four requests: the model, its elements, its threats and its mitigations.
 - **Status values are free.** A threat model, threat or mitigation can be set to any allowed status at any time, in any direction.
 - **Unknown fields are rejected.** Every create and update body is validated, and the error names each field that is wrong, without repeating what you sent.
@@ -51,8 +52,8 @@ How they behave:
 | Element | `threat_model_id` | yes | An existing threat model |
 | | `type` | yes | `external_entity`, `process`, `data_store`, `data_flow`, `trust_boundary` |
 | | `name` | yes | Up to 200 characters |
-| | `properties` | no | A JSON object, defaults to `{}` |
-| | `layout` | no | A JSON object or `null` (the default) |
+| | `properties` | no | `{ "tags"?: string[], "flags"?: { "<flag>": boolean } }`, defaults to `{}`. See [Element properties](#element-properties) |
+| | `layout` | no | `null` (not placed yet, the default) or the position for the type. See [Element layout](#element-layout) |
 | | `source_element_id`, `target_element_id` | `data_flow` only | Elements of the same model that are not trust boundaries or data flows. Every other type must leave both out |
 | | `parent_boundary_id` | no | A trust boundary of the same model. A data flow has no parent |
 | Threat | `threat_model_id` | yes | An existing threat model |
@@ -70,6 +71,37 @@ How they behave:
 | | `external_ref` | no | An `http` or `https` URL up to 2,048 characters, or `null` (the default) |
 
 Responses also include `id`, `created_at` and `updated_at`. A project also has `created_by`, the account that created it: it comes from your token, never from the body. A threat also has `risk` (`Low`, `Medium`, `High` or `Critical`), which the server derives from `likelihood` and `impact` and which you cannot set.
+
+### Element properties
+
+`properties` holds technology tags and security flags, and nothing else:
+
+- **`tags`**: up to 20 strings of 1–50 characters each, stored trimmed. Two tags that differ only in case are rejected.
+- **`flags`**: yes/no answers. The flags an element may carry depend on its type:
+
+| Type | Flags |
+| --- | --- |
+| `external_entity` | `authenticated`, `internet_facing` |
+| `process` | `internet_facing`, `requires_authentication`, `handles_sensitive_data`, `runs_privileged` |
+| `data_store` | `stores_sensitive_data`, `encrypted_at_rest`, `internet_facing` |
+| `data_flow` | `encrypted_in_transit`, `authenticated`, `carries_sensitive_data` |
+| `trust_boundary` | none |
+
+`true` means yes and `false` means no. **A flag that is absent means "not assessed"**, which is not the same as `false`: leave a flag out until someone has looked. A flag from another type, an unknown flag, a value that is not a boolean and any other key are rejected, and the error does not repeat what was sent.
+
+An update checks only what it writes. `properties` is checked when you send it, or when the `type` changes (the stored flags must fit the new type); other updates, such as a rename, do not re-check what is already stored.
+
+### Element layout
+
+`layout` is where the element sits on its diagram. `x` and `y` are its top-left corner, **relative to the top-left corner of its parent boundary**, or to the diagram origin when it has no parent boundary. Moving a boundary therefore changes one row, and its members keep their stored positions.
+
+| Type | `layout` |
+| --- | --- |
+| `external_entity`, `process`, `data_store` | `null`, or `{ "x", "y" }`. The node is drawn at a fixed size (140 × 60) |
+| `trust_boundary` | `null`, or `{ "x", "y", "width", "height" }` |
+| `data_flow` | always `null`: a flow is drawn between its two ends |
+
+`x` and `y` are numbers from -100,000 to 100,000, and `width` and `height` from 40 to 100,000. A `null` layout is shown in a free place on the diagram and is not written until the element is moved.
 
 ## Examples (curl)
 
@@ -119,6 +151,28 @@ curl -s "${H[@]}" -d "{\"threat_id\":\"$THREAT\",\"description\":\"Verify the si
 ```
 
 The threat comes back with `"risk":"Critical"`, `"status":"open"` and `"origin":"manual"`.
+
+A process with flags and tags, placed on the diagram:
+
+```sh
+curl -s "${H[@]}" -d "{
+  \"threat_model_id\":\"$MODEL\", \"type\":\"process\", \"name\":\"Auth service\",
+  \"properties\":{\"tags\":[\"Node 22\"],\"flags\":{\"internet_facing\":true,\"runs_privileged\":false}},
+  \"layout\":{\"x\":120,\"y\":80}}" \
+  localhost:3000/api/v1/elements
+```
+
+`requires_authentication` and the other flags are left out: they are "not assessed".
+
+Several writes at once, as one request. The first operation gives its element an `id`, so the flow can refer to it:
+
+```sh
+curl -s "${H[@]}" -d "{\"operations\":[
+  {\"op\":\"create\",\"element\":{\"id\":\"5f0c7f3a-0b1e-4c43-9a5d-2f6a1b9e8c01\",\"type\":\"data_store\",\"name\":\"Orders DB\",\"layout\":{\"x\":400,\"y\":80}}},
+  {\"op\":\"create\",\"element\":{\"type\":\"data_flow\",\"name\":\"Writes\",\"source_element_id\":\"$ELEMENT\",\"target_element_id\":\"5f0c7f3a-0b1e-4c43-9a5d-2f6a1b9e8c01\"}},
+  {\"op\":\"update\",\"id\":\"$ELEMENT\",\"changes\":{\"name\":\"Payment API v2\"}}
+]}" localhost:3000/api/v1/threat-models/$MODEL/elements/batch
+```
 
 ### Read, change and list
 
@@ -208,11 +262,11 @@ Errors are JSON: `{"error": "<message>"}`. A message never contains a value you 
 
 | Status | Meaning |
 | --- | --- |
-| 400 | Invalid input (a field that is wrong, an unknown field, an invalid or undecodable id, malformed JSON, no updatable fields), or a reference that doesn't hold (for example an element from another threat model) |
+| 400 | Invalid input (a field that is wrong, an unknown field, an invalid or undecodable id, malformed JSON, no updatable fields), or a reference that doesn't hold (for example an element from another threat model). A threat model can hold at most 1,000 elements: creating the 1,001st is a `400` that says so. A batch of more than 200 operations is a `400`, and so is one with a bad operation, which the message names by its position counting from 0 (`Operation 3: …` is the fourth) |
 | 401 | Missing, invalid or expired token; wrong login credentials; or, on `/api/session`, `Session ended` |
 | 403 | `/api/session` was called without an `Origin` that matches the request's host |
 | 404 | No record with that id (the message names the record, for example `Project not found`), or a path the app doesn't serve (`Not found`) |
-| 409 | A name is already taken, an element still has threats, or the username already exists |
+| 409 | A name is already taken, an element still has threats, the username already exists, or an element `id` you supplied is already in use (`An element with this id already exists`) |
 | 413 | Request body larger than 100 KB |
 | 415 | A content encoding the server cannot read, or a `/api/session` body that isn't JSON |
 | 429 | Too many failed sign-ins (`Retry-After` says when to try again) |
