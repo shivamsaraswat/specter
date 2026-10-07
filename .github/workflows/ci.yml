@@ -89,6 +89,19 @@ jobs:
         run: pnpm --filter @specter/web exec playwright install --with-deps chromium
       - name: Browser tests
         run: pnpm test:e2e
+      # A failed browser test keeps a Playwright trace: its network traffic (session cookies, tokens), what was
+      # typed, and snapshots of each page. The repository is public, so anyone can download it. That is safe
+      # only because everything this job uses is throwaway: the values in `env` above, a database that exists
+      # only for this job, and accounts the tests make. This job must never be given a real secret or pointed
+      # at a real environment while this step uploads traces.
+      - name: Keep the traces of failed browser tests
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   docker-build:
     name: docker-build
