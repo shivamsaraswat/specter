@@ -66,7 +66,7 @@ function lookup(table: Record<string, string>, key: string | undefined): string 
   return key !== undefined && Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
-// Maps a Postgres rule violation to the response in specs/005-rest-api-v1/contracts/v1-api.md
+// Maps a Postgres rule violation to the response in specs/phase-1/milestone-5-rest-api-v1/contracts/v1-api.md
 // ("Storage errors"), keyed on SQLSTATE and constraint name only. The driver's own message and
 // detail can contain row values, so they are never read. Returns null for anything not recognised,
 // which the router rethrows to the app's 500 handler.

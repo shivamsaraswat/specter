@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 // Fails when a shipped (production) dependency has a license that is not on the allowed list
 // (Phase 1 Milestone 7, FR-006a). The contract is
-// specs/007-open-source-hygiene/contracts/license-check.md. It is default-deny: anything this file
+// specs/phase-1/milestone-7-open-source-hygiene/contracts/license-check.md. It is default-deny: anything this file
 // cannot positively show to be allowed is a violation.
 
 export interface Policy {

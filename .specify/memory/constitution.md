@@ -1,21 +1,18 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.6.0 → 1.6.1
-Rationale: Phase 1 / Milestone 7 (specs/007-open-source-hygiene) adds the repository's public-facing
-  documents: LICENSE (Apache-2.0), SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, issue forms and a
-  pull request template. Governance lists where implementation-level how-to guidance belongs, so
-  CONTRIBUTING.md and SECURITY.md join that list. This is a PATCH: a list addition for clarity, with
-  no principle, rule or gate added, changed or removed. A dependency license check was also added to
-  the existing required `lint` check; it is documented in docs/ci.md, not here, because writing it
-  into Principle II or the Development Workflow would be a rule change and a MINOR bump.
+Version change: 1.6.1 → 1.6.2
+Rationale: the specs/ directory is reorganized by roadmap phase and milestone: specs/NNN-<name>/
+  becomes specs/phase-<N>/milestone-<M>-<name>/ (Phase 1's 001–007 are now
+  specs/phase-1/milestone-1-… to milestone-7-…). This file's references to those spec directories
+  are updated to the new paths. This is a PATCH: file paths only, with no principle, rule or gate
+  added, changed or removed.
 Modified principles: none
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
-Threat Model changes: none. The milestone adds no asset, entry point or trust boundary: the new
-  documents are static, the license check runs offline inside the existing `lint` job, and the web
-  build's third-party notices file (dist/.vite/license.md) ships in the image and is not served.
+Threat Model changes: none in substance; the spec paths cited in Assets (current) and Denial of
+  Service are updated. No asset, entry point or trust boundary changes.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -169,12 +166,12 @@ they ship.
 **Assets (current)**: user credentials (`users.password_hash`); the JWT signing secret; database
 credentials; issued JWTs (bearer tokens) held by clients; the CI/CD pipeline's own integrity — the
 `GITHUB_TOKEN`, third-party GitHub Actions steps, the base and service container images it pulls
-(Phase 1 Milestone 2, `specs/002-ci-pipeline/`), and, since Phase 1 Milestone 6, the Playwright browser
+(Phase 1 Milestone 2, `specs/phase-1/milestone-2-ci-pipeline/`), and, since Phase 1 Milestone 6, the Playwright browser
 binaries and system packages the `test` job downloads; threat-model records — projects, threat models,
-elements, threats and mitigations (Phase 1 Milestone 3, `specs/003-domain-schema/`), stored in the
-database and, since Phase 1 Milestone 5 (`specs/005-rest-api-v1/`), readable and writable by any
+elements, threats and mitigations (Phase 1 Milestone 3, `specs/phase-1/milestone-3-domain-schema/`), stored in the
+database and, since Phase 1 Milestone 5 (`specs/phase-1/milestone-5-rest-api-v1/`), readable and writable by any
 authenticated account through `/api/v1`; browser sessions (`browser_sessions`, Phase 1 Milestone 6,
-`specs/006-react-app-shell/`), whose session credentials are stored only as SHA-256 digests, the
+`specs/phase-1/milestone-6-react-app-shell/`), whose session credentials are stored only as SHA-256 digests, the
 short-lived access tokens the UI holds in page memory, and the sign-in failure counts
 (`sign_in_throttle`), whose keys are HMACs of what was typed and of the client address. The original
 threat entry records and Milestone 4's legacy links no longer exist: Milestone 5 removed them.
@@ -286,7 +283,7 @@ webhooks.
   removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint.
 - **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
-  specs/005-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
+  specs/phase-1/milestone-5-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
   account, so the throttle cannot be used to lock a user out; behind a load balancer `TRUST_PROXY`
   must be set, or every client shares the balancer's address and the per-address limit applies to
   everyone at once. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
@@ -348,4 +345,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.6.1 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-06
+**Version**: 1.6.2 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-07

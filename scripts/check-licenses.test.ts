@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate, parsePolicy, parseReport, type LicenseReport, type Policy } from './check-licenses.js';
 
-// The contract is specs/007-open-source-hygiene/contracts/license-check.md. The report has the shape
+// The contract is specs/phase-1/milestone-7-open-source-hygiene/contracts/license-check.md. The report has the shape
 // of `pnpm licenses list --prod --json`: license string -> the packages under it.
 const policy: Policy = {
   allowed: ['MIT', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', '0BSD'],

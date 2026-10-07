@@ -1,7 +1,7 @@
 # Continuous Integration
 
 This documents the CI pipeline added in Phase 1 / Milestone 2 of `plan.md`
-(`specs/002-ci-pipeline/`): the four required checks, static analysis, dependency updates, and
+(`specs/phase-1/milestone-2-ci-pipeline/`): the four required checks, static analysis, dependency updates, and
 every repository setting that isn't a file in this repo.
 
 ## Checks
@@ -107,7 +107,7 @@ re-enable it from the Actions tab.
 ## License check
 
 The `lint` job also fails when a dependency that ships in the product has a license that is not on
-the allowed list (Phase 1 / Milestone 7, `specs/007-open-source-hygiene/`). It runs as the last
+the allowed list (Phase 1 / Milestone 7, `specs/phase-1/milestone-7-open-source-hygiene/`). It runs as the last
 step of `pnpm lint`, so a local `pnpm lint` and the CI job behave identically.
 
 - **What it checks**: the production npm dependencies of every workspace package, as
