@@ -135,3 +135,19 @@ export async function addNode(page: Page, button: string, name: string): Promise
   await page.keyboard.press('Enter');
   await expect(nodeOf(page, name)).toBeVisible();
 }
+
+
+// Deletes an element chosen from the Elements list, with the keyboard: choose it, check that the selection and the
+// focus have both arrived on the canvas (the Delete key only reaches the editor from there), press Delete. A gesture
+// that missed is done again, as a person would.
+export async function deleteFromList(page: Page, rowName: string, name: string): Promise<void> {
+  const row = page.getByRole('navigation', { name: 'Elements' }).getByRole('button', { name: rowName });
+  await expect(async () => {
+    await row.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByLabel('Name')).toHaveValue(name, { timeout: 1500 });
+    await expect(canvasOf(page).locator('.react-flow__edge:focus, .react-flow__node:focus')).toHaveCount(1, { timeout: 1500 });
+    await page.keyboard.press('Delete');
+    await expect(row).toBeHidden({ timeout: 3000 });
+  }).toPass(GESTURE);
+}
