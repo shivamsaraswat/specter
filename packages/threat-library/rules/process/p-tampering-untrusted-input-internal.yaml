@@ -1,0 +1,27 @@
+id: p-tampering-untrusted-input-internal
+element_type: process
+category: Tampering
+variant_group: p-untrusted-input
+title: "Crafted input from inside the network can change what {{element}} does"
+description: >-
+  {{element}} is not reachable from the internet, but it still takes input from other components. A
+  bug or compromise in any of them can send it malformed or hostile data, and an internal caller is
+  no more trustworthy than an outside one once it is compromised.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    internet_facing: no
+mitigations:
+  - "Validate input from other components the same way as input from users: strict schema, limits, rejection of anything unexpected."
+  - Use parameterized or structured APIs for databases and interpreters.
+  - Treat data that has passed through other systems, such as queues and files, as input too.
+references:
+  - CWE-20
+  - CWE-74
+examples:
+  applies:
+    - flags: { internet_facing: no }
+    - {}
+  does_not_apply:
+    - flags: { internet_facing: yes }

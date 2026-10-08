@@ -1,0 +1,29 @@
+id: df-disclosure-plaintext-crossing
+element_type: data_flow
+category: Information Disclosure
+variant_group: df-plaintext-transit
+title: "Data from {{source}} to {{target}} readable in transit across a trust boundary"
+description: >-
+  {{element}} carries data from {{source}} to {{target}} without encryption, and the connection
+  leaves one trust zone for another. Anyone on the network path between the zones can read it.
+likelihood: High
+impact: High
+when:
+  flags:
+    encrypted_in_transit: no
+  flow:
+    crosses_trust_boundary: yes
+mitigations:
+  - Encrypt the connection with TLS 1.2 or later and reject plaintext connections.
+  - Authenticate the server certificate on the client side.
+references:
+  - CWE-319
+  - CAPEC-94
+examples:
+  applies:
+    - flags: { encrypted_in_transit: not_assessed }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+  does_not_apply:
+    - flags: { encrypted_in_transit: yes }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: process }

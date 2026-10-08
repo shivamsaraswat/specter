@@ -1,0 +1,33 @@
+id: df-disclosure-plaintext-internal
+element_type: data_flow
+category: Information Disclosure
+variant_group: df-plaintext-transit
+title: "Data from {{source}} to {{target}} can be read by anyone on the same network"
+description: >-
+  {{element}} carries data from {{source}} to {{target}} without encryption. Both ends are in the
+  same trust zone, but anyone or anything that can see that network's traffic, such as a compromised
+  machine or a misplaced tap, can read what passes.
+likelihood: Low
+impact: Medium
+when:
+  flags:
+    encrypted_in_transit: no
+  flow:
+    crosses_trust_boundary: no
+mitigations:
+  - Encrypt internal connections with TLS as well.
+  - Where encryption is not practical, keep sensitive data off the connection and restrict who can
+    see the network path.
+references:
+  - CWE-319
+  - CAPEC-157
+examples:
+  applies:
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: data_store }
+  does_not_apply:
+    - flags: { encrypted_in_transit: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: yes, source_type: process, target_type: process }

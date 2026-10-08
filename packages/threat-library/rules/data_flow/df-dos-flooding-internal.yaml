@@ -1,0 +1,24 @@
+id: df-dos-flooding-internal
+element_type: data_flow
+category: Denial of Service
+variant_group: df-flooding
+title: "A fault in {{source}} can flood {{target}} with messages"
+description: >-
+  {{element}} stays inside one trust zone, but a bug, a retry storm or a compromised sender can
+  still send more than {{target}} can handle.
+likelihood: Low
+impact: Low
+when:
+  flow:
+    crosses_trust_boundary: no
+mitigations:
+  - Have senders back off when the receiver is slow, instead of retrying at once.
+  - Limit the rate the receiver accepts, and bound any queue between the two.
+references:
+  - CWE-400
+  - CWE-770
+examples:
+  applies:
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+  does_not_apply:
+    - flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }

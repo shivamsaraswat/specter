@@ -1,0 +1,21 @@
+id: ee-repudiation-denies-actions
+element_type: external_entity
+category: Repudiation
+title: "{{element}} can deny having done something"
+description: >-
+  If the system keeps no trustworthy record of what {{element}} asked for, the entity can later
+  claim it never did, and the system cannot show otherwise. That matters most for orders, approvals,
+  deletions and payments.
+likelihood: Medium
+impact: Medium
+mitigations:
+  - "Keep a tamper-resistant record of what each external party did: who, what, when and from where."
+  - For actions that matter, keep evidence the party cannot dispute, such as a signed request or a
+    confirmation they received.
+  - Keep these records for as long as disputes can arise.
+references:
+  - CWE-778
+  - CWE-223
+examples:
+  applies:
+    - {}

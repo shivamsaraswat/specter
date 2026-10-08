@@ -1,0 +1,26 @@
+id: ds-dos-direct-flooding
+element_type: data_store
+category: Denial of Service
+title: "Traffic from the internet can overload {{element}} directly"
+description: >-
+  {{element}} faces the internet with no service in front of it to limit traffic. A flood of
+  connections or queries can exhaust its connections and CPU, and a data store is rarely built to
+  shed load from strangers.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    internet_facing: yes
+mitigations:
+  - Take the store off the public internet and let only the application reach it.
+  - Limit connections and query time per account, and pool connections in the application.
+  - Put a service with rate limits in front of any access that must remain.
+references:
+  - CWE-400
+  - CAPEC-125
+examples:
+  applies:
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: no }
+    - {}

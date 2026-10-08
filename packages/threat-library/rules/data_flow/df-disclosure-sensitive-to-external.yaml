@@ -1,0 +1,36 @@
+id: df-disclosure-sensitive-to-external
+element_type: data_flow
+category: Information Disclosure
+title: "Sensitive data goes from {{source}} to an outside party, {{target}}"
+description: >-
+  {{element}} carries sensitive data to {{target}}, which is outside the system. Once the data has
+  left, you cannot control what the recipient does with it, who else can see it there, or how long
+  it is kept.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    carries_sensitive_data: yes
+  flow:
+    target_type: external_entity
+mitigations:
+  - Send only the fields the recipient needs, and leave out or replace the rest, for example with
+    pseudonyms.
+  - Agree in writing what the recipient may do with the data and how long they keep it.
+  - Authenticate the recipient, encrypt the connection, and log what is sent.
+references:
+  - CWE-201
+  - CWE-200
+  - CWE-359
+examples:
+  applies:
+    - flags: { carries_sensitive_data: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: external_entity }
+    - flags: { carries_sensitive_data: yes }
+      flow: { crosses_trust_boundary: yes, source_type: process, target_type: external_entity }
+  does_not_apply:
+    - flags: { carries_sensitive_data: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: external_entity }
+    - flags: { carries_sensitive_data: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: external_entity }

@@ -1,0 +1,34 @@
+id: df-tampering-forged-messages-crossing
+element_type: data_flow
+category: Tampering
+variant_group: df-forged-messages
+title: "Anyone who can reach {{target}} can send it forged data that claims to come from {{source}}"
+description: >-
+  {{element}} does not authenticate the sender, and it crosses a trust boundary. {{target}} cannot
+  tell data really sent by {{source}} from data sent by someone else, so it may act on forged input.
+likelihood: High
+impact: High
+when:
+  flags:
+    authenticated: no
+  flow:
+    crosses_trust_boundary: yes
+mitigations:
+  - Authenticate the sender on every message, for example with mutual TLS, signed requests or tokens
+    tied to the sender.
+  - Reject messages that do not carry valid proof of who sent them.
+  - Limit who can reach the receiving end at all.
+references:
+  - CWE-345
+  - CWE-940
+  - CAPEC-194
+examples:
+  applies:
+    - flags: { authenticated: no }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+  does_not_apply:
+    - flags: { authenticated: yes }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flags: { authenticated: no }
+      flow: { crosses_trust_boundary: no, source_type: external_entity, target_type: process }

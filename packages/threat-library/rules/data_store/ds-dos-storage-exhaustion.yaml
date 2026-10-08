@@ -1,0 +1,19 @@
+id: ds-dos-storage-exhaustion
+element_type: data_store
+category: Denial of Service
+title: "{{element}} can run out of space or capacity"
+description: >-
+  If nothing limits how much can be written to {{element}}, one runaway job, one noisy customer or
+  one attacker can fill it. When it is full, writes fail and everything that depends on it stops.
+likelihood: Medium
+impact: Medium
+mitigations:
+  - Set quotas and size limits per user, tenant and request, and refuse oversized writes.
+  - Monitor growth and free space, and alert well before the limit.
+  - Archive or delete data on a retention schedule, and plan capacity ahead of demand.
+references:
+  - CWE-400
+  - CWE-770
+examples:
+  applies:
+    - {}

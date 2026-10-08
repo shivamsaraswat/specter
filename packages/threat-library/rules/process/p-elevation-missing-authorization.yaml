@@ -1,0 +1,29 @@
+id: p-elevation-missing-authorization
+element_type: process
+category: Elevation of Privilege
+title: "A signed-in user can reach functions in {{element}} that are meant for others"
+description: >-
+  {{element}} requires callers to sign in, but being signed in is not the same as being allowed. If
+  it does not check permissions for each function, an ordinary user may reach administrative or
+  other users' functions by calling them directly.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    requires_authentication: yes
+mitigations:
+  - Enforce authorization on the server for every function, with deny as the default, and not only
+    by hiding controls in the interface.
+  - Keep the authorization rules in one place that every entry point uses.
+  - Test every role against every function, including with direct calls.
+references:
+  - CWE-862
+  - CWE-863
+  - CAPEC-122
+  - CAPEC-1
+examples:
+  applies:
+    - flags: { requires_authentication: yes }
+  does_not_apply:
+    - flags: { requires_authentication: no }
+    - {}

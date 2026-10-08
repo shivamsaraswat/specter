@@ -1,0 +1,23 @@
+id: p-spoofing-process-impersonation
+element_type: process
+category: Spoofing
+title: "Another program can pose as {{element}} to the components that call it"
+description: >-
+  Components that call {{element}} need to be sure they are talking to the real one. If an attacker
+  can take over its name or address, or sit on the path to it, they can answer in its place and
+  collect what callers send.
+likelihood: Low
+impact: High
+mitigations:
+  - Have the process prove its identity to callers, for example with TLS certificates that clients
+    verify against a trusted authority, or mutual TLS between services.
+  - Protect service discovery and name resolution against tampering.
+  - Do not let clients disable certificate checks, even in test setups that could be copied to
+    production.
+references:
+  - CWE-290
+  - CWE-295
+  - CAPEC-151
+examples:
+  applies:
+    - {}

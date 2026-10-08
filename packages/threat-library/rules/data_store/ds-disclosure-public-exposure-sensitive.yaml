@@ -1,0 +1,30 @@
+id: ds-disclosure-public-exposure-sensitive
+element_type: data_store
+category: Information Disclosure
+variant_group: ds-public-exposure
+title: "Sensitive data in {{element}} is reachable from the public internet"
+description: >-
+  {{element}} stores sensitive data and can be reached directly from the public internet. A weak or
+  leaked credential, a mistaken permission or a misconfigured bucket is then enough to expose the
+  data to anyone, and such exposures are found and scraped quickly.
+likelihood: High
+impact: High
+when:
+  flags:
+    internet_facing: yes
+    stores_sensitive_data: yes
+mitigations:
+  - Remove public access. Put the store on a private network behind a service that authenticates and
+    authorizes every request.
+  - Where public reads are intended, publish only a separate copy that holds nothing sensitive.
+  - Check regularly, automatically, that nothing sensitive has become public.
+references:
+  - CWE-200
+  - CWE-668
+  - CWE-552
+examples:
+  applies:
+    - flags: { internet_facing: yes, stores_sensitive_data: yes }
+  does_not_apply:
+    - flags: { internet_facing: yes, stores_sensitive_data: no }
+    - flags: { internet_facing: no, stores_sensitive_data: yes }

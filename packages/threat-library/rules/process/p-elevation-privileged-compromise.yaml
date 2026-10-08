@@ -1,0 +1,28 @@
+id: p-elevation-privileged-compromise
+element_type: process
+category: Elevation of Privilege
+title: "A flaw in {{element}} gives an attacker administrative control"
+description: >-
+  {{element}} runs with elevated or administrative privileges. Any flaw an attacker can reach, such
+  as an injection, a deserialization bug or a bad dependency, then hands them those privileges, and
+  with them a way to reach everything else on the host.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    runs_privileged: yes
+mitigations:
+  - "Run with the fewest privileges that work: a dedicated unprivileged account, minimal capabilities and a read-only filesystem."
+  - Move the few operations that need privileges into a small separate component with a narrow
+    interface.
+  - "Harden the container or host: no privileged mode, no mounted host sockets, restricted system calls."
+references:
+  - CWE-250
+  - CWE-269
+  - CAPEC-233
+examples:
+  applies:
+    - flags: { runs_privileged: yes }
+  does_not_apply:
+    - flags: { runs_privileged: no }
+    - {}

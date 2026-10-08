@@ -1,0 +1,34 @@
+id: df-tampering-plaintext-crossing
+element_type: data_flow
+category: Tampering
+variant_group: df-in-transit-modification
+title: "Data from {{source}} to {{target}} can be changed in transit across a trust boundary"
+description: >-
+  {{element}} carries data from {{source}} to {{target}} without encryption, and the connection
+  leaves one trust zone for another. Anyone on the path between the zones can modify the data before
+  it arrives, and neither end can tell.
+likelihood: High
+impact: High
+when:
+  flags:
+    encrypted_in_transit: no
+  flow:
+    crosses_trust_boundary: yes
+mitigations:
+  - Protect the connection with TLS 1.2 or later, and reject plaintext connections.
+  - Verify the other end's certificate, and use mutual TLS where both ends are services you control.
+  - For messages that cross several hops, sign them so that tampering is visible whatever the
+    transport.
+references:
+  - CWE-924
+  - CAPEC-94
+examples:
+  applies:
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flow: { crosses_trust_boundary: yes, source_type: process, target_type: data_store }
+  does_not_apply:
+    - flags: { encrypted_in_transit: yes }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }

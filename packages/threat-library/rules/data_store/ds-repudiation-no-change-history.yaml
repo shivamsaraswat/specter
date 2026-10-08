@@ -1,0 +1,21 @@
+id: ds-repudiation-no-change-history
+element_type: data_store
+category: Repudiation
+title: "Changes to {{element}} cannot be traced to whoever made them"
+description: >-
+  If {{element}} keeps only its current contents, nobody can tell afterwards who changed a record,
+  when, or what it said before. A wrong or malicious change cannot be attributed and cannot easily
+  be undone.
+likelihood: Medium
+impact: Medium
+mitigations:
+  - Record who changed what and when, with the previous value where it matters, in an audit trail or
+    change history.
+  - Keep that history somewhere the ordinary application account can append to but not rewrite.
+  - Keep the history for as long as the data it describes matters.
+references:
+  - CWE-778
+  - CWE-223
+examples:
+  applies:
+    - {}

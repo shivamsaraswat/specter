@@ -1,0 +1,20 @@
+id: ds-dos-data-destruction
+element_type: data_store
+category: Denial of Service
+title: "Data in {{element}} can be deleted or corrupted, taking the system down with it"
+description: >-
+  A mistaken command, a bad release or an attacker with write access can delete or overwrite the
+  data in {{element}}. The system is then unusable until the data is back, if it can be.
+likelihood: Low
+impact: High
+mitigations:
+  - Keep tested backups with recovery objectives that the business has agreed to, and rehearse a
+    restore.
+  - Turn on deletion protection, versioning or soft delete for the data that matters.
+  - Keep destructive permissions apart from everyday ones, and ask for a second approval for bulk
+    deletes.
+references:
+  - CWE-284
+examples:
+  applies:
+    - {}

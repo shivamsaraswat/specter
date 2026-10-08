@@ -1,0 +1,28 @@
+id: ds-tampering-unauthorized-write-internal
+element_type: data_store
+category: Tampering
+variant_group: ds-unauthorized-write
+title: "A user or service on the network could change data in {{element}} without permission"
+description: >-
+  {{element}} is not exposed to the internet, but every account and service that can reach it is a
+  way to change what it holds. Shared administrative credentials and wide write permissions turn any
+  single mistake or compromise into corrupted data.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    internet_facing: no
+mitigations:
+  - Give each consumer its own account, read-only wherever writing is not needed, and avoid shared
+    administrative credentials.
+  - Segment the network so that only the services that need the store can reach it.
+  - Record who changed what, and review changes made outside the normal application path.
+references:
+  - CWE-284
+  - CWE-732
+examples:
+  applies:
+    - flags: { internet_facing: no }
+    - {}
+  does_not_apply:
+    - flags: { internet_facing: yes }

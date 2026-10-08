@@ -1,0 +1,21 @@
+id: p-disclosure-error-details
+element_type: process
+category: Information Disclosure
+title: "{{element}} may reveal its internals in error messages"
+description: >-
+  Detailed errors help developers and attackers alike. Stack traces, query text, file paths and
+  version numbers in a response show an attacker how {{element}} is built and where to push.
+likelihood: Medium
+impact: Low
+mitigations:
+  - Return a short generic message to the caller and write the details to the log, with an
+    identifier that links the two.
+  - Turn off debug output and stack traces in production.
+  - Make responses to missing and forbidden things look the same where the difference would help an
+    attacker.
+references:
+  - CWE-209
+  - CWE-200
+examples:
+  applies:
+    - {}

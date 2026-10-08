@@ -1,0 +1,22 @@
+id: p-dos-dependency-failure
+element_type: process
+category: Denial of Service
+title: "{{element}} stops working when something it depends on fails"
+description: >-
+  {{element}} relies on other components such as databases, queues and other services. If one of
+  them is slow or down and the process waits for it without a limit, requests pile up and the
+  failure spreads.
+likelihood: Medium
+impact: Medium
+mitigations:
+  - Set timeouts on every call to another component, and retry with backoff and a limit.
+  - Use circuit breakers or similar so a failing dependency is skipped quickly instead of waited
+    for.
+  - Decide in advance what the process does without each dependency, and keep the critical path free
+    of single points of failure.
+references:
+  - CWE-703
+  - CWE-755
+examples:
+  applies:
+    - {}

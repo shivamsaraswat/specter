@@ -1,0 +1,33 @@
+id: ee-spoofing-unauthenticated-internal
+element_type: external_entity
+category: Spoofing
+variant_group: ee-impersonation
+title: "Anyone inside the network can pose as {{element}}"
+description: >-
+  {{element}} connects from inside the network and does not prove who it is. A compromised machine
+  or a curious colleague on the same network can send the same requests and be taken for the real
+  entity.
+
+  A private network is not an identity check.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    authenticated: no
+    internet_facing: no
+mitigations:
+  - Authenticate the entity even though it is internal; network location alone proves nothing.
+  - Give each internal client its own credential so that one stolen credential does not open
+    everything.
+  - Segment the network so that only the machines that need to reach the system can do so.
+references:
+  - CWE-306
+  - CWE-290
+  - CAPEC-151
+examples:
+  applies:
+    - flags: { authenticated: no, internet_facing: no }
+    - {}
+  does_not_apply:
+    - flags: { authenticated: yes }
+    - flags: { authenticated: no, internet_facing: yes }

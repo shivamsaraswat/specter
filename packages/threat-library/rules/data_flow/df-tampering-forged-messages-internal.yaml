@@ -1,0 +1,33 @@
+id: df-tampering-forged-messages-internal
+element_type: data_flow
+category: Tampering
+variant_group: df-forged-messages
+title: "Another internal component can send {{target}} forged data that claims to come from {{source}}"
+description: >-
+  {{element}} does not authenticate the sender, but both ends are in one trust zone. Any other
+  component in the zone, including one that has been compromised, can send {{target}} data that
+  looks like it came from {{source}}.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    authenticated: no
+  flow:
+    crosses_trust_boundary: no
+mitigations:
+  - Authenticate the sender on every message, even inside the zone.
+  - Give each internal component its own credential, so that one compromise cannot speak for all.
+  - Limit which components can reach the receiving end.
+references:
+  - CWE-345
+  - CWE-940
+examples:
+  applies:
+    - flags: { authenticated: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: data_store }
+  does_not_apply:
+    - flags: { authenticated: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flags: { authenticated: no }
+      flow: { crosses_trust_boundary: yes, source_type: process, target_type: process }

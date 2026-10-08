@@ -1,0 +1,29 @@
+id: p-dos-resource-exhaustion-internet
+element_type: process
+category: Denial of Service
+variant_group: p-resource-exhaustion
+title: "Anyone on the internet can overwhelm {{element}}"
+description: >-
+  {{element}} accepts work from the public internet. Without limits, a flood of requests, a few very
+  expensive ones or a slow connection held open on purpose can use up its CPU, memory or connections
+  and shut out real users.
+likelihood: High
+impact: Medium
+when:
+  flags:
+    internet_facing: yes
+mitigations:
+  - Limit request rates per client, and cap request size, concurrency and processing time.
+  - Put a gateway, content delivery network or load balancer in front that can absorb and shed load.
+  - Bound expensive operations such as searches, exports and uploads.
+  - Set a cost ceiling on any automatic scaling.
+references:
+  - CWE-400
+  - CWE-770
+  - CAPEC-125
+examples:
+  applies:
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: no }
+    - {}

@@ -1,0 +1,33 @@
+id: df-tampering-plaintext-internal
+element_type: data_flow
+category: Tampering
+variant_group: df-in-transit-modification
+title: "Data from {{source}} to {{target}} can be changed in transit inside one trust zone"
+description: >-
+  {{element}} carries data from {{source}} to {{target}} without encryption. Both ends sit in the
+  same trust zone, but a compromised machine or device on that network can still alter the data on
+  its way.
+likelihood: Low
+impact: High
+when:
+  flags:
+    encrypted_in_transit: no
+  flow:
+    crosses_trust_boundary: no
+mitigations:
+  - Encrypt internal connections with TLS as well; a flat internal network is a weak assumption.
+  - Where encryption is not practical, restrict who can be on the network path and watch for
+    changes.
+references:
+  - CWE-924
+  - CAPEC-94
+examples:
+  applies:
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: data_store }
+  does_not_apply:
+    - flags: { encrypted_in_transit: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flags: { encrypted_in_transit: no }
+      flow: { crosses_trust_boundary: yes, source_type: process, target_type: process }

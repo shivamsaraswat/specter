@@ -1,0 +1,21 @@
+id: ds-tampering-backup-integrity
+element_type: data_store
+category: Tampering
+title: "Backups of {{element}} can be altered, so a restore brings back bad data"
+description: >-
+  A backup is only useful if it holds what was really there. If someone can change or replace the
+  copies of {{element}}, a restore after an incident reinstates the attacker's version, or fails
+  when it is needed most.
+likelihood: Low
+impact: High
+mitigations:
+  - Keep backups write-once or immutable for their retention period, in an account that normal
+    operators and the application cannot change.
+  - Check backups with checksums, and test a restore regularly.
+  - Keep several generations so that a bad one can be skipped.
+references:
+  - CWE-353
+  - CWE-345
+examples:
+  applies:
+    - {}

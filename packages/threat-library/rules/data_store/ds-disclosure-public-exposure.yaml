@@ -1,0 +1,30 @@
+id: ds-disclosure-public-exposure
+element_type: data_store
+category: Information Disclosure
+variant_group: ds-public-exposure
+title: "Data in {{element}} is reachable from the public internet"
+description: >-
+  {{element}} can be reached directly from the public internet. Even if it holds nothing marked
+  sensitive, exposed data reveals how the system works and what it holds, and a data store facing
+  the internet is a standing target.
+likelihood: High
+impact: Medium
+when:
+  flags:
+    internet_facing: yes
+    stores_sensitive_data: no
+mitigations:
+  - Remove public access unless the data is meant to be public, and put the store behind a service
+    that controls access.
+  - If it is meant to be public, say so, and confirm that nothing else is stored with it.
+  - Check regularly, automatically, that the exposure is what you intended.
+references:
+  - CWE-200
+  - CWE-668
+examples:
+  applies:
+    - flags: { internet_facing: yes, stores_sensitive_data: no }
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: yes, stores_sensitive_data: yes }
+    - flags: { internet_facing: no, stores_sensitive_data: no }

@@ -1,0 +1,30 @@
+id: p-tampering-untrusted-input-internet
+element_type: process
+category: Tampering
+variant_group: p-untrusted-input
+title: "Crafted input from the internet can change what {{element}} does"
+description: >-
+  {{element}} takes input from the public internet. Anyone can send it data shaped to be misread: an
+  oversized value, a wrong type, or text that looks like a command or query. If the process trusts
+  that input, the attacker decides what it does.
+likelihood: High
+impact: High
+when:
+  flags:
+    internet_facing: yes
+mitigations:
+  - "Validate every input at the boundary against a strict schema: type, length, range and allowed values. Reject what does not match instead of repairing it."
+  - Pass input to databases, shells and other interpreters through parameterized or structured APIs,
+    never by building command strings.
+  - Encode output for where it will be shown.
+  - Reject fields the process does not expect.
+references:
+  - CWE-20
+  - CWE-74
+  - CAPEC-153
+examples:
+  applies:
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: no }
+    - {}

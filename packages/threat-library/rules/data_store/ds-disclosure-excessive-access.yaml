@@ -1,0 +1,27 @@
+id: ds-disclosure-excessive-access
+element_type: data_store
+category: Information Disclosure
+title: "Too many people or services can read sensitive data in {{element}}"
+description: >-
+  Over time, more accounts and services are granted access to {{element}} than need it. Each extra
+  reader widens the chance of a leak by mistake, by compromise or by someone looking at what they
+  should not.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    stores_sensitive_data: yes
+mitigations:
+  - Grant each person and service the least access that works, with separate accounts, and limit the
+    columns, rows or paths they can see.
+  - Review who has access on a schedule and remove what is no longer needed.
+  - Provide a logged, time-limited way to get emergency access instead of standing broad access.
+references:
+  - CWE-284
+  - CWE-359
+examples:
+  applies:
+    - flags: { stores_sensitive_data: yes }
+  does_not_apply:
+    - flags: { stores_sensitive_data: no }
+    - {}

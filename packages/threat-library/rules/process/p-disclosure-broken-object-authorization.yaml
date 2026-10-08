@@ -1,0 +1,29 @@
+id: p-disclosure-broken-object-authorization
+element_type: process
+category: Information Disclosure
+title: "A signed-in user may read someone else's data through {{element}}"
+description: >-
+  {{element}} knows who the caller is, but knowing who someone is does not say which records they
+  may see. If it hands back whatever record is asked for, a signed-in user can read other people's
+  data by changing an identifier in a request.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    handles_sensitive_data: yes
+    requires_authentication: yes
+mitigations:
+  - Check on the server, for every request, that this caller may access this record. Sign-in alone
+    is not enough.
+  - Do not treat hard-to-guess identifiers as access control; they only slow guessing down.
+  - Test with two accounts, trying each one's records from the other.
+references:
+  - CWE-639
+  - CWE-862
+  - CWE-863
+examples:
+  applies:
+    - flags: { handles_sensitive_data: yes, requires_authentication: yes }
+  does_not_apply:
+    - flags: { handles_sensitive_data: no, requires_authentication: yes }
+    - flags: { handles_sensitive_data: yes, requires_authentication: no }

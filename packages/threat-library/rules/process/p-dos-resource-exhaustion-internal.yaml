@@ -1,0 +1,26 @@
+id: p-dos-resource-exhaustion-internal
+element_type: process
+category: Denial of Service
+variant_group: p-resource-exhaustion
+title: "A faulty or hostile internal client can overwhelm {{element}}"
+description: >-
+  {{element}} is not reachable from the internet, but the components that call it can still
+  misbehave: a retry loop, a bug or a compromised service can send more than it can handle.
+likelihood: Low
+impact: Medium
+when:
+  flags:
+    internet_facing: no
+mitigations:
+  - "Apply limits to internal callers too: request rates, sizes, concurrency and timeouts."
+  - Make clients back off when the process is slow, instead of retrying at once.
+  - Isolate the resources that critical callers depend on from those of bulk or batch callers.
+references:
+  - CWE-400
+  - CWE-770
+examples:
+  applies:
+    - flags: { internet_facing: no }
+    - {}
+  does_not_apply:
+    - flags: { internet_facing: yes }
