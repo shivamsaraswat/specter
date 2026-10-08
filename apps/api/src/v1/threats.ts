@@ -39,7 +39,8 @@ export const threatOperations: Operation<unknown>[] = [
     path: '/threats/:id',
     operationId: 'updateThreat',
     summary: 'Update the fields sent; the others stay as they are',
-    description: 'Any status can be set at any time, in any direction. origin cannot be changed.',
+    description:
+      'Any status can be set at any time, in any direction. origin cannot be changed. library_ref and element_id cannot change on a threat whose origin is rule.',
     body: { name: 'ThreatUpdateInput', schema: ThreatUpdateInput },
     response: { name: 'ThreatRecord', schema: ThreatRecord },
     status: 200,

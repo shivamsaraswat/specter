@@ -259,9 +259,21 @@ library.candidatesFor({
 
 library.lookup('df-disclosure-plaintext-crossing'); // { status: 'active' | 'retired' | 'unknown', … }
 library.coverage(); // active rules per element type and STRIDE category
+
+// Why an active rule does not apply to an element: the conditions it does not meet, with what the rule
+// requires and what the element has. Empty when the rule applies.
+library.unmetConditions(
+  { type: 'data_flow', name: 'Card details', properties: { flags: { encrypted_in_transit: true } }, flow },
+  'df-disclosure-plaintext-crossing',
+); // [{ fact: 'flag', flag: 'encrypted_in_transit', required: 'no', actual: 'yes' }]
 ```
 
 `candidatesFor` is pure: the same element always gives the same candidates, in the order of the rule
 ids, and it reads and writes nothing. It throws `LibraryInputError` for an element it cannot evaluate,
 such as a flag its type does not have. The full interface is in
 [`contracts/library-api.md`](../../specs/phase-2/milestone-2-threat-library/contracts/library-api.md).
+
+`unmetConditions` uses the same comparisons as `candidatesFor`, so its answer cannot disagree with it. The
+rule engine uses it to say why a generated threat went stale. It throws `LibraryInputError` for an id that
+is not an active rule (use `lookup` for retired or unknown ids). See
+[`contracts/library-api-additions.md`](../../specs/phase-2/milestone-3-rule-engine/contracts/library-api-additions.md).

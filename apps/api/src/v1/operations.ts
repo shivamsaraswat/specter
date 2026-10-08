@@ -1,4 +1,5 @@
 import { elementOperations } from './elements.js';
+import { generateOperations } from './generate.js';
 import { mitigationOperations } from './mitigations.js';
 import type { Operation } from './operation.js';
 import { projectOperations } from './projects.js';
@@ -11,5 +12,6 @@ export const resourceOperations: Operation<unknown>[] = [
   ...threatModelOperations,
   ...elementOperations,
   ...threatOperations,
+  ...generateOperations,
   ...mitigationOperations,
 ];

@@ -15,7 +15,7 @@ const MESSAGES = {
   projectName: 'A project with this name already exists',
   modelName: 'A threat model with this name already exists in this project',
   elementHasThreats:
-    'This element still has threats, or data flows that would be deleted with it have threats; delete or reassign those threats first',
+    'This element still has threats, or data flows that would be deleted with it have threats; delete those threats first',
   threatElement: 'element_id must refer to an element in the same threat model',
   flowSource: 'source_element_id must refer to an element in the same threat model',
   flowTarget: 'target_element_id must refer to an element in the same threat model',
@@ -35,6 +35,7 @@ const MESSAGES = {
     "An element's type can only change within its class: node types among themselves, never to or from data_flow or trust_boundary",
   moved: 'A record cannot be moved to another parent',
   origin: 'origin cannot change',
+  ruleLink: 'A rule-generated threat stays linked to its element and rule',
   backstop: 'The request breaks a data rule',
   limit: 'A threat model can hold at most 1,000 elements',
   elementId: 'An element with this id already exists',
@@ -68,6 +69,7 @@ describe('mapStorageError, row by row', () => {
     ['23514', 'threats_threat_model_immutable', 'write', 400, MESSAGES.moved],
     ['23514', 'mitigations_threat_immutable', 'write', 400, MESSAGES.moved],
     ['23514', 'threats_origin_immutable', 'write', 400, MESSAGES.origin],
+    ['23514', 'threats_rule_link_immutable', 'write', 400, MESSAGES.ruleLink],
     ['23514', 'elements_limit', 'write', 400, MESSAGES.limit],
     ['23505', 'elements_pkey', 'write', 409, MESSAGES.elementId],
     // The backstops: rules the request schemas already enforce, so normally never reached.

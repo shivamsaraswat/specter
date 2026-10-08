@@ -5,6 +5,7 @@ import { useDeleteThreat, useUpdateThreat } from '../api/queries.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { ErrorSummary } from './ErrorSummary.js';
 import { MitigationList } from './MitigationList.js';
+import { describeStale } from './stale-text.js';
 import { ThreatForm } from './ThreatForm.js';
 
 interface ThreatTableProps {
@@ -15,7 +16,9 @@ interface ThreatTableProps {
   elements: ElementRecord[];
 }
 
-const COLUMNS = ['Title', 'Category', 'Likelihood', 'Impact', 'Risk', 'Status', 'Element', 'Mitigations', 'Actions'];
+const COLUMNS = ['Title', 'Category', 'Likelihood', 'Impact', 'Risk', 'Status', 'Element', 'Source', 'Mitigations', 'Actions'];
+const COMES_BACK =
+  'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable instead.';
 const label = (value: string): string => value.replace('_', ' ');
 
 // The threats of a threat model. A threat model of 1,000 threats and 2,000 mitigations stays usable
@@ -83,13 +86,32 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
             return (
               <Fragment key={threat.id}>
                 <tr>
-                  <td>{threat.title}</td>
+                  <td>
+                    {threat.title}
+                    {threat.stale && (
+                      <>
+                        <strong className="badge stale">Stale</strong>
+                        <p className="stale-reason">{describeStale(threat.stale)}</p>
+                      </>
+                    )}
+                  </td>
                   <td>{threat.category}</td>
                   <td>{threat.likelihood}</td>
                   <td>{threat.impact}</td>
                   <td>{threat.risk}</td>
                   <td>{label(threat.status)}</td>
                   <td>{(threat.element_id && elementNames.get(threat.element_id)) || '—'}</td>
+                  <td>
+                    {threat.origin === 'manual' ? (
+                      'Manual'
+                    ) : threat.origin === 'rule' ? (
+                      <>
+                        Rule <code>{threat.library_ref}</code>
+                      </>
+                    ) : (
+                      threat.origin
+                    )}
+                  </td>
                   <td>
                     <button type="button" aria-expanded={open} aria-controls={panelId} onClick={() => toggle(threat.id)}>
                       {own.length} {own.length === 1 ? 'mitigation' : 'mitigations'}
@@ -138,9 +160,11 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
         <ConfirmDialog
           title="Delete threat"
           message={
-            deletingCount > 0
+            (deletingCount > 0
               ? `Delete threat "${deleting.title}"? Its ${deletingCount} mitigation(s) will be deleted too.`
-              : `Delete threat "${deleting.title}"?`
+              : `Delete threat "${deleting.title}"?`) +
+            // A deleted generated threat is not remembered: the next run creates it again (spec FR-016a).
+            (deleting.origin === 'rule' ? ` ${COMES_BACK}` : '')
           }
           confirmLabel="Delete"
           onConfirm={() => void onDelete(deleting)}

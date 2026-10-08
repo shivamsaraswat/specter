@@ -41,6 +41,7 @@ export function fakeEditor(overrides: Partial<DiagramEditor> = {}): DiagramEdito
     pendingCount: 0,
     apply: vi.fn(),
     retry: vi.fn(),
+    whenSettled: vi.fn(() => Promise.resolve('saved' as const)),
     selectedIds: [],
     select: vi.fn(),
     focusNameFor: null,

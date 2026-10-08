@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { apiToken, expect, seedElements, seedModel, signInAsNewAccount, test } from './fixtures.js';
 
+// The canvas sits below the threat model's header and the generate bar, so a window of the usual height shows only
+// part of it. A taller window keeps the drag below on screen, as in the other diagram specs.
+test.use({ viewport: { width: 1400, height: 1100 } });
+
 // The gate for the whole diagram editor (research #1, quickstart §2.1). React Flow positions its nodes
 // with styles set from script. That is meant to be allowed under `style-src 'self'`, but it is browser
 // behavior, so it is proved here, in the built app under the real CSP, before anything is built on it.

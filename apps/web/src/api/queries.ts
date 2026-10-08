@@ -4,6 +4,7 @@ import {
   ElementRecord,
   MitigationRecord,
   ProjectRecord,
+  ThreatGenerationResult,
   ThreatModelRecord,
   ThreatRecord,
   type ElementBatchOperationInput,
@@ -250,5 +251,21 @@ export function useDeleteMitigation(threatModelId: string) {
     mutationFn: (id: string) => apiDelete(`/api/v1/mitigations/${id}`),
     onSuccess: refresh,
     onError: refetchWhenGone(client, refresh),
+  });
+}
+
+// ---- generating threats ----
+
+// Whatever the outcome, the lists are refetched: when the answer is lost on the way, the run may still
+// have stored its threats, and the table must show what the server holds (contracts/web-ui.md).
+export function useGenerateThreats(threatModelId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiPost(`/api/v1/threat-models/${threatModelId}/threats/generate`, ThreatGenerationResult, {}),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.threats(threatModelId) }),
+        client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) }),
+      ]),
   });
 }

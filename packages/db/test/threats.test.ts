@@ -178,9 +178,11 @@ describe('threats: status and origin (FR-024, FR-025)', () => {
       { code: '23502', column: 'origin' },
     );
     await expectPgError(createThreat(modelId, { origin: 'human' }), { code: '23514', constraint: 'threats_origin_check' });
-    for (const origin of ['manual', 'rule', 'ai']) {
-      expect((await createThreat(modelId, { origin })).origin).toBe(origin);
-    }
+    // A rule threat must name its element and rule (014, threats_rule_link).
+    const element = await createElement(modelId, 'process');
+    expect((await createThreat(modelId, { origin: 'manual' })).origin).toBe('manual');
+    expect((await createThreat(modelId, { origin: 'ai' })).origin).toBe('ai');
+    expect((await createThreat(modelId, { origin: 'rule', element_id: element.id, library_ref: 'p-x' })).origin).toBe('rule');
   });
 
   it('never lets origin change afterwards, so provenance cannot be rewritten (Principle VI)', async () => {

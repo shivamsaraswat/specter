@@ -58,11 +58,14 @@ const BROKEN_RULES: Record<string, string> = {
   threats_threat_model_immutable: MOVED_MESSAGE,
   mitigations_threat_immutable: MOVED_MESSAGE,
   threats_origin_immutable: 'origin cannot change',
+  // A generated threat keeps its element and rule for good: moving it would make the next run create a
+  // duplicate, and editing its rule id could fake provenance. Unchanged values are not a change.
+  threats_rule_link_immutable: 'A rule-generated threat stays linked to its element and rule',
   elements_limit: 'A threat model can hold at most 1,000 elements',
 };
 
 const ELEMENT_HAS_THREATS =
-  'This element still has threats, or data flows that would be deleted with it have threats; delete or reassign those threats first';
+  'This element still has threats, or data flows that would be deleted with it have threats; delete those threats first';
 
 // An error found while applying operation `index` of a batch says which one it was (contracts/
 // elements-batch.md "Errors"). The message is already a fixed string, so nothing from the request

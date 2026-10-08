@@ -1,4 +1,6 @@
-import { checkInput, matches, toCandidate, type Candidate, type ElementInput } from './evaluate.js';
+import type { UnmetCondition } from '@specter/core';
+import { checkInput, matches, toCandidate, unmet, type Candidate, type ElementInput } from './evaluate.js';
+import { LibraryInputError } from './errors.js';
 import type { RetirementRecord, Rule } from './rule-schema.js';
 import { STRIDE_PER_ELEMENT, RULE_ELEMENT_TYPES, type RuleElementType } from './stride.js';
 
@@ -49,6 +51,10 @@ export interface Library {
   // The candidate threats for one element: every active rule that applies, ordered by rule id. Pure:
   // it reads and writes nothing, so the same element always gives the same answer (FR-015).
   candidatesFor(element: ElementInput): readonly Candidate[];
+  // Which conditions of an active rule an element does not meet (empty when the rule applies), with what
+  // the rule requires and what the element has. Agrees with candidatesFor by construction: both use the
+  // same comparisons. Throws LibraryInputError for an id that is not an active rule, or invalid input.
+  unmetConditions(element: ElementInput, ruleId: string): readonly UnmetCondition[];
   // Whether a library reference is an active rule, a retired one (with what was kept of it), or
   // unknown. Any string is accepted (FR-020).
   lookup(reference: string): LookupResult;
@@ -89,6 +95,11 @@ export function createLibrary(
         .filter((rule) => matches(rule, facts))
         .map((rule) => toCandidate(rule, facts.names));
       return Object.freeze(candidates);
+    },
+    unmetConditions(element: ElementInput, ruleId: string): readonly UnmetCondition[] {
+      const found = results.get(ruleId);
+      if (found?.status !== 'active') throw new LibraryInputError('the id is not an active rule');
+      return deepFreeze(unmet(found.rule, checkInput(element), element.type));
     },
     lookup(reference: string): LookupResult {
       return results.get(reference) ?? unknown;

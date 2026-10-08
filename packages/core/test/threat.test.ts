@@ -104,6 +104,7 @@ describe('ThreatRecord', () => {
     risk: 'High',
     status: 'open',
     library_ref: null,
+    stale: null,
     created_at: '2026-10-04T10:00:00.000Z',
     updated_at: '2026-10-04T10:00:00.000Z',
   };
@@ -115,6 +116,17 @@ describe('ThreatRecord', () => {
   it('accepts a 90,000-character title and description in a stored record: the record sets no maximum (M3 FR-031)', () => {
     const long = ThreatRecord.parse({ ...row, title: 'T'.repeat(90_000), description: 'D'.repeat(90_000) });
     expect(long.title).toHaveLength(90_000);
+  });
+
+  it('requires stale, null or a stale reason', () => {
+    expect(ThreatRecord.safeParse({ ...row, stale: undefined }).success).toBe(false);
+    expect(ThreatRecord.safeParse({ ...row, stale: { reason: 'rule_unknown' } }).success).toBe(true);
+    expect(ThreatRecord.safeParse({ ...row, stale: { reason: 'nonsense' } }).success).toBe(false);
+  });
+
+  it('keeps stale out of every client input: it is the rule engine\'s alone (FR-010)', () => {
+    expect(ThreatCreateInput.safeParse({ ...valid, stale: null }).success).toBe(false);
+    expect(ThreatUpdateInput.safeParse({ stale: null }).success).toBe(false);
   });
 
   it('requires a risk level', () => {

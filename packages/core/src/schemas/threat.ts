@@ -7,6 +7,7 @@ import {
   THREAT_ORIGINS,
   THREAT_STATUSES,
 } from '../enums.js';
+import { StaleReason } from './stale.js';
 import { DESCRIPTION_MAX_LENGTH, NAME_MAX_LENGTH, optionalText, requiredText, timestamp, uuid } from '../fields.js';
 
 // risk is derived by storage and never accepted as input. origin has no default on purpose: whoever
@@ -53,6 +54,8 @@ export const ThreatRecord = z.strictObject({
   status: z.enum(THREAT_STATUSES),
   origin: z.enum(THREAT_ORIGINS),
   library_ref: z.string().nullable(),
+  // Set and cleared only by the rule engine; no client input accepts it (spec FR-010).
+  stale: StaleReason.nullable(),
   created_at: timestamp,
   updated_at: timestamp,
 });

@@ -173,7 +173,7 @@ describe('the working copy is the server state with the queued actions on top (F
 
 const apiError = (status: number, message: string) => new ApiError(status, message);
 const THREATS_409 =
-  'Operation 0: This element still has threats, or data flows that would be deleted with it have threats; delete or reassign those threats first';
+  'Operation 0: This element still has threats, or data flows that would be deleted with it have threats; delete those threats first';
 
 function hooked() {
   const hooks = { onRejected: vi.fn(), onThreatsBlocked: vi.fn(), onGone: vi.fn() };
@@ -331,5 +331,68 @@ describe('SaveQueue: the on-screen copy never loses a change that is still going
     await flush();
     // The refused change is gone from what is shown; the one behind it is still there.
     expect(queue.getSnapshot().pending.map((a) => a.label)).toEqual([`Move ${id(2)}`]);
+  });
+});
+
+describe('SaveQueue.whenSettled (research #12, US1 scenario 6)', () => {
+  it('resolves saved at once when nothing is pending', async () => {
+    const queue = new SaveQueue(vi.fn(() => Promise.resolve()));
+    await expect(queue.whenSettled()).resolves.toBe('saved');
+  });
+
+  it('waits for the pending action, then resolves saved', async () => {
+    const { send, calls } = manualSend();
+    const queue = new SaveQueue(send);
+    queue.enqueue(move(id(1), 10));
+    let settled: SaveStatus | undefined;
+    void queue.whenSettled().then((status) => (settled = status));
+    await flush();
+    expect(settled).toBeUndefined();
+    calls[0]?.resolve();
+    await flush();
+    expect(settled).toBe('saved');
+  });
+
+  it('does not resolve on the snapshot enqueue publishes before the save starts (saved, but one action pending)', async () => {
+    const { send, calls } = manualSend();
+    const queue = new SaveQueue(send);
+    let settled: SaveStatus | undefined;
+    let asked = false;
+    // The first notification enqueue sends shows status "saved" with the action already pending.
+    queue.subscribe(() => {
+      if (asked) return;
+      asked = true;
+      expect(queue.getSnapshot().pending).toHaveLength(1);
+      void queue.whenSettled().then((status) => (settled = status));
+    });
+    queue.enqueue(move(id(1), 10));
+    await flush();
+    expect(settled).toBeUndefined();
+    calls[0]?.resolve();
+    await flush();
+    expect(settled).toBe('saved');
+  });
+
+  it('resolves failed when the save cannot be sent, so nothing is generated against unsaved work', async () => {
+    const { send, calls } = manualSend();
+    const queue = new SaveQueue(send);
+    queue.enqueue(move(id(1), 10));
+    let settled: SaveStatus | undefined;
+    void queue.whenSettled().then((status) => (settled = status));
+    calls[0]?.reject(new TypeError('network'));
+    await flush();
+    expect(settled).toBe('failed');
+    await expect(queue.whenSettled()).resolves.toBe('failed');
+  });
+
+  it('resolves gone when the threat model no longer exists', async () => {
+    const { send, calls } = manualSend();
+    const queue = new SaveQueue(send);
+    queue.enqueue(move(id(1), 10));
+    let settled: SaveStatus | undefined;
+    void queue.whenSettled().then((status) => (settled = status));
+    calls[0]?.reject(new ApiError(404, 'Threat model not found'));
+    await flush();
+    expect(settled).toBe('gone');
   });
 });

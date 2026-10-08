@@ -6,3 +6,25 @@ export type WriteAction = 'create' | 'update' | 'delete';
 export function logWrite(accountId: number, action: WriteAction, type: RecordType, id: string): void {
   console.log(JSON.stringify({ event: 'write', account_id: accountId, action, type, id }));
 }
+
+// One stdout line per generation run, after it has committed: who ran it, on which threat model, and the
+// counts (FR-018). It takes ids and numbers only, so a name, a threat's text or a skipped element's id
+// can never end up in the log. The threats and mitigations a run creates get no line of their own.
+export function logGeneration(
+  accountId: number,
+  threatModelId: string,
+  counts: { created: number; existing: number; newly_stale: number; no_longer_stale: number; skipped_elements: readonly string[] },
+): void {
+  console.log(
+    JSON.stringify({
+      event: 'generate',
+      account_id: accountId,
+      threat_model_id: threatModelId,
+      created: counts.created,
+      existing: counts.existing,
+      newly_stale: counts.newly_stale,
+      no_longer_stale: counts.no_longer_stale,
+      skipped: counts.skipped_elements.length,
+    }),
+  );
+}
