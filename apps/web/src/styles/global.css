@@ -144,3 +144,38 @@ dialog::backdrop {
     padding: 0.5rem;
   }
 }
+
+/* The generate-threats bar and a stale threat's marker (Phase 2 / Milestone 3). Colours come from the
+   same tokens as everything else, so they follow the page's contrast. */
+.generate-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.generate-bar p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.badge.stale {
+  color: var(--danger);
+}
+
+.stale-reason {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}

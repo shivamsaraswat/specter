@@ -7,6 +7,7 @@ import {
   type Impact,
   type Likelihood,
   type StrideCategory,
+  type UnmetCondition,
 } from '@specter/core';
 import { LibraryInputError } from './errors.js';
 import type { Rule } from './rule-schema.js';
@@ -50,27 +51,39 @@ export interface Facts {
   flow?: { crosses_trust_boundary: boolean; source_type: NodeType; target_type: NodeType };
 }
 
-export function matches(rule: Rule, facts: Facts): boolean {
+// The conditions of `rule` that an element of type `elementType` with these facts does not meet, in a
+// fixed order: the element type; then the flags, in the order the rule lists them; then the flow
+// facts: crossing, source type, target type. Empty means the rule applies. This is the one place the
+// conditions are compared, so `matches` and the reasons the rule engine gives for a stale threat
+// cannot disagree (Phase 2 / Milestone 3, research #4).
+export function unmet(rule: Rule, facts: Facts, elementType: ElementType): UnmetCondition[] {
+  // A rule for another type says nothing about this element's flags, which may not even exist there.
+  if (elementType !== rule.element_type) {
+    return [{ fact: 'element_type', required: rule.element_type, actual: elementType }];
+  }
+  const result: UnmetCondition[] = [];
   for (const [flag, wanted] of Object.entries(rule.when.flags)) {
-    if ((facts.flags[flag] === true) !== (wanted === 'yes')) return false;
+    const have = facts.flags[flag];
+    if ((have === true) !== (wanted === 'yes')) {
+      result.push({ fact: 'flag', flag, required: wanted, actual: have === undefined ? 'not_assessed' : have ? 'yes' : 'no' });
+    }
   }
   const { crosses_trust_boundary, source_type, target_type } = rule.when.flow;
-  if (
-    crosses_trust_boundary !== undefined ||
-    source_type !== undefined ||
-    target_type !== undefined
-  ) {
-    const flow = facts.flow;
-    if (!flow) return false;
-    if (
-      crosses_trust_boundary !== undefined &&
-      flow.crosses_trust_boundary !== (crosses_trust_boundary === 'yes')
-    )
-      return false;
-    if (source_type !== undefined && flow.source_type !== source_type) return false;
-    if (target_type !== undefined && flow.target_type !== target_type) return false;
+  const flow = facts.flow;
+  if (crosses_trust_boundary !== undefined && flow?.crosses_trust_boundary !== (crosses_trust_boundary === 'yes')) {
+    result.push({ fact: 'crosses_trust_boundary', required: crosses_trust_boundary, actual: flow?.crosses_trust_boundary ? 'yes' : 'no' });
   }
-  return true;
+  if (source_type !== undefined && flow?.source_type !== source_type) {
+    result.push({ fact: 'source_type', required: source_type, actual: flow?.source_type ?? source_type });
+  }
+  if (target_type !== undefined && flow?.target_type !== target_type) {
+    result.push({ fact: 'target_type', required: target_type, actual: flow?.target_type ?? target_type });
+  }
+  return result;
+}
+
+export function matches(rule: Rule, facts: Facts): boolean {
+  return unmet(rule, facts, rule.element_type).length === 0;
 }
 
 const PLACEHOLDER = /\{\{(element|source|target)\}\}/g;

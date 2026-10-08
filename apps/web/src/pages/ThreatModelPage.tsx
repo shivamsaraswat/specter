@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { ErrorSummary } from '../components/ErrorSummary.js';
 import { DiagramEditorProvider } from '../diagram/DiagramEditorProvider.js';
 import { LeaveGuard } from '../diagram/LeaveGuard.js';
+import { GenerateThreats } from '../components/GenerateThreats.js';
 import { FormField } from '../components/FormField.js';
 import { LoadError } from '../components/LoadError.js';
 import { ThreatModelForm } from '../components/ThreatModelForm.js';
@@ -131,6 +132,7 @@ function ThreatModelView({ id }: { id: string }) {
         </NavLink>
       </nav>
       <DiagramEditorProvider key={id} threatModelId={id}>
+        <GenerateThreats threatModelId={id} />
         <LeaveGuard />
         <Outlet />
       </DiagramEditorProvider>

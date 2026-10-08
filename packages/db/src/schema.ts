@@ -13,6 +13,7 @@ import type {
   Methodology,
   MitigationStatus,
   RiskLevel,
+  StaleReason,
   StrideCategory,
   ThreatModelStatus,
   ThreatOrigin,
@@ -74,6 +75,8 @@ interface ThreatsTable {
   // Provenance: set once, never changed (Principle VI).
   origin: Fixed<ThreatOrigin>;
   library_ref: string | null;
+  // Why a rule-generated threat no longer fits the diagram; NULL when current. Only the rule engine writes it.
+  stale: ColumnType<StaleReason | null, StaleReason | null | undefined, StaleReason | null>;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

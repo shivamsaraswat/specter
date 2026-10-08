@@ -30,6 +30,7 @@ const OPERATION_IDS = [
   'updateElement',
   'deleteElement',
   'batchElements',
+  'generateThreats',
   'createThreat',
   'getThreat',
   'updateThreat',
@@ -117,7 +118,10 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
     walk(doc(), (value, path) => {
       const isEmptyObject = typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0;
       // A default or an example is data, and {} is a legitimate value for one.
-      if (isEmptyObject && !path.includes('default') && !path.includes('example')) empty.push('/' + path.join('/'));
+      const pointer = '/' + path.join('/');
+      // ThreatGenerationInput is deliberately the empty object (it takes no options), so its `properties` is {}.
+      const intended = pointer === '/components/schemas/ThreatGenerationInput/properties';
+      if (isEmptyObject && !intended && !path.includes('default') && !path.includes('example')) empty.push(pointer);
     });
     expect(empty).toEqual([]);
   });
@@ -137,7 +141,7 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       for (const { path } of operationsOf(doc())) expect(path.startsWith('/api/v1/'), path).toBe(true);
     });
 
-    it('describes exactly the 28 operations of the contract', () => {
+    it('describes exactly the 29 operations of the contract', () => {
       const ids = operationsOf(doc()).map(({ op }) => op.operationId);
       expect(ids.sort()).toEqual([...OPERATION_IDS].sort());
     });
@@ -167,6 +171,26 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       expect(document.components.schemas.ElementBatchResult).toBeDefined();
       expect(op?.description).toContain('all or none');
       expect(op?.description).toContain('200');
+    });
+
+    it('documents generateThreats with its {} body, its counts and its errors (contracts/generate-threats-api.md)', () => {
+      const document = doc();
+      const op = document.paths['/api/v1/threat-models/{id}/threats/generate']?.post;
+      expect(op?.operationId).toBe('generateThreats');
+      expect(op?.requestBody).toBeDefined();
+      expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(['200', '400', '401', '404', '413', '415', '500']));
+      expect(document.components.schemas.ThreatGenerationInput).toBeDefined();
+      expect(document.components.schemas.ThreatGenerationResult).toBeDefined();
+      expect(op?.description).toContain('all or nothing');
+    });
+
+    it('documents the read-only stale field of a threat record and its reasons (finding E3)', () => {
+      const document = doc();
+      expect(document.components.schemas.ThreatRecord?.properties?.stale).toBeDefined();
+      const text = JSON.stringify(document.components.schemas.ThreatRecord);
+      expect(text).toContain('conditions_unmet');
+      expect(text).toContain('rule_retired');
+      expect(text).toContain('rule_unknown');
     });
 
     it('states the coordinate frame of layout and the vocabulary of properties', () => {

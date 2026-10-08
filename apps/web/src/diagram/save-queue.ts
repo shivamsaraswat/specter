@@ -86,6 +86,27 @@ export class SaveQueue {
     if (this.snapshot.status !== 'failed') void this.pump();
   }
 
+  // Resolves once the queue has nothing left to save (`saved`), or has stopped trying (`failed`, `gone`).
+  // `saved` needs both an empty queue and the saved status: enqueue() publishes the new action before
+  // the save starts, so a snapshot can briefly say "saved" with an action still pending.
+  whenSettled(): Promise<SaveStatus> {
+    const settled = (): SaveStatus | null => {
+      const { status, pending } = this.snapshot;
+      if (status === 'failed' || status === 'gone') return status;
+      return status === 'saved' && pending.length === 0 ? 'saved' : null;
+    };
+    const now = settled();
+    if (now !== null) return Promise.resolve(now);
+    return new Promise((resolve) => {
+      const unsubscribe = this.subscribe(() => {
+        const result = settled();
+        if (result === null) return;
+        unsubscribe();
+        resolve(result);
+      });
+    });
+  }
+
   retry(): void {
     if (this.snapshot.status !== 'failed') return;
     this.set({ status: 'saving', error: null });

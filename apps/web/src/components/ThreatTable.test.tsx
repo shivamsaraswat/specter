@@ -28,10 +28,72 @@ function setup(threats: unknown[], mitigations: unknown[] = [], elements: unknow
 }
 
 describe('ThreatTable', () => {
+  describe('stale threats (FR-016, US3 scenario 7)', () => {
+    it('marks a stale threat and gives the reason in place, under its title', () => {
+      setup([
+        threat({
+          origin: 'rule',
+          element_id: ELEMENT_ID,
+          library_ref: 'df-x',
+          stale: { reason: 'conditions_unmet', unmet: [{ fact: 'flag', flag: 'encrypted_in_transit', required: 'no', actual: 'yes' }] },
+        }),
+      ], [], [element()]);
+      const cell = screen.getByText('Session token theft').closest('td') as HTMLElement;
+      expect(within(cell).getByText('Stale')).toBeTruthy();
+      expect(within(cell).getByText('The rule no longer applies: requires Encrypted in transit to be No; it is Yes.')).toBeTruthy();
+    });
+
+    it('shows no marker on a threat that is not stale', () => {
+      setup([threat()]);
+      expect(screen.queryByText('Stale')).toBeNull();
+      expect(document.querySelector('.stale-reason')).toBeNull();
+    });
+
+    it('renders a retirement reason that looks like markup as text', () => {
+      setup([
+        threat({
+          origin: 'rule',
+          element_id: ELEMENT_ID,
+          library_ref: 'p-old',
+          stale: { reason: 'rule_retired', retired_on: '2026-11-02', retirement_reason: '<img src=x onerror=alert(1)>', replaced_by: [] },
+        }),
+      ], [], [element()]);
+      expect(document.querySelector('.stale-reason img')).toBeNull();
+      expect(screen.getByText(/<img src=x onerror=alert\(1\)>/)).toBeTruthy();
+    });
+  });
+
+  describe('where a threat came from (US4)', () => {
+    it('says Manual for a threat written by hand', () => {
+      setup([threat()]);
+      const row = screen.getByText('Session token theft').closest('tr') as HTMLElement;
+      expect(within(row).getByText('Manual')).toBeTruthy();
+      expect(row.querySelector('code')).toBeNull();
+    });
+
+    it('says Rule, and shows the rule id as code, for a generated threat', () => {
+      setup([threat({ origin: 'rule', element_id: ELEMENT_ID, library_ref: 'df-disclosure-plaintext-crossing' })], [], [element()]);
+      const row = screen.getByText('Session token theft').closest('tr') as HTMLElement;
+      expect(within(row).getByText('Rule')).toBeTruthy();
+      expect(row.querySelector('code')?.textContent).toBe('df-disclosure-plaintext-crossing');
+    });
+
+    it('still names an origin it does not know, so the column never hides one', () => {
+      setup([threat({ origin: 'ai' })]);
+      expect(screen.getByText('ai')).toBeTruthy();
+    });
+
+    it('shows a rule id that looks like markup as text', () => {
+      setup([threat({ origin: 'rule', element_id: ELEMENT_ID, library_ref: '<b>x</b>' })], [], [element()]);
+      expect(document.querySelector('code b')).toBeNull();
+      expect(document.querySelector('code')?.textContent).toBe('<b>x</b>');
+    });
+  });
+
   it('has the documented columns, in order', () => {
     setup([threat()]);
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
-    expect(headers).toEqual(['Title', 'Category', 'Likelihood', 'Impact', 'Risk', 'Status', 'Element', 'Mitigations', 'Actions']);
+    expect(headers).toEqual(['Title', 'Category', 'Likelihood', 'Impact', 'Risk', 'Status', 'Element', 'Source', 'Mitigations', 'Actions']);
   });
 
   it('shows the risk the server derived, the status, and the element name or a dash', () => {
@@ -99,6 +161,23 @@ describe('ThreatTable', () => {
       setup([threat()]);
       await userEvent.click(screen.getByRole('button', { name: /Delete threat/ }));
       expect(screen.getByText('Delete threat "Session token theft"?')).toBeTruthy();
+    });
+
+    const COMES_BACK =
+      'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable instead.';
+
+    it('warns that a generated threat comes back, and points to Not applicable (FR-016a)', async () => {
+      installFakeApi({});
+      setup([threat({ origin: 'rule', element_id: ELEMENT_ID, library_ref: 'p-spoofing-no-auth' })], [], [element()]);
+      await userEvent.click(screen.getByRole('button', { name: /Delete threat/ }));
+      expect(screen.getByText(/Delete threat "Session token theft"\?/).textContent).toContain(COMES_BACK);
+    });
+
+    it('does not say so for a manual threat', async () => {
+      installFakeApi({});
+      setup([threat()]);
+      await userEvent.click(screen.getByRole('button', { name: /Delete threat/ }));
+      expect(document.querySelector('dialog')?.textContent).not.toContain('Generating threats again');
     });
 
     it('sends nothing on Cancel, and a DELETE on confirm', async () => {

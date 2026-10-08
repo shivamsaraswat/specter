@@ -43,6 +43,7 @@ const COLUMNS = {
     status: true,
     origin: true,
     library_ref: true,
+    stale: true,
     created_at: true,
     updated_at: true,
   },

@@ -1,29 +1,33 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.6.2 → 1.7.0
-Rationale: Phase 2 Milestone 1 (the data-flow diagram editor, specs/phase-2/milestone-1-dfd-editor/) adds an
-  entry point to /api/v1, POST /api/v1/threat-models/{id}/elements/batch, which applies up to 200 element
-  writes to one threat model in a single transaction, and it narrows what an element's `properties` and
-  `layout` may hold (a fixed vocabulary, validated on every write) and limits a threat model to 1,000
-  elements, in the database. Principle V requires the Threat Model section to be updated for a new entry
-  point in the same change. This is a MINOR: it adds to the Threat Model section's entry points and
-  mitigations, as Phase 1 Milestones 5 and 6 did, and adds or changes no principle.
+Version change: 1.7.0 → 1.8.0
+Rationale: Phase 2 Milestone 3 (the rule engine, specs/phase-2/milestone-3-rule-engine/) adds an entry point to
+  /api/v1, POST /api/v1/threat-models/{id}/threats/generate, which runs the shipped threat library against a
+  threat model's diagram and writes the threats and mitigations it proposes, and it is the first server-side
+  writer of `origin = 'rule'`. It adds a column (`threats.stale`) that only that writer sets, and it makes a
+  rule-generated threat's element and rule permanent in the database. Principle V requires the Threat Model
+  section to be updated for a new entry point in the same change. This is a MINOR: it adds to the Threat Model
+  section's entry points and mitigations, as Phase 1 Milestones 5 and 6 and Phase 2 Milestone 1 did, and adds or
+  changes no principle.
 Modified principles: none (Principle V's rule is applied, not changed)
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Trust boundaries (current): the batch endpoint is named among the /api/v1 entry points; it is in the same
-    trust tier as the single-record element endpoints.
-  - Tampering: Mitigated (Phase 2 Milestone 1): element properties and layout are validated against a fixed
-    vocabulary on every write, by one shared schema that the single-record and batch endpoints both use.
-  - Denial of Service: Partially mitigated (Phase 2 Milestone 1): at most 1,000 elements per threat model,
-    enforced by a database trigger, and at most 200 operations per batch.
-  - Elevation of Privilege: no widening. The batch endpoint grants nothing the single-record endpoints do not:
-    any authenticated account could already create, change and delete every element.
-  - Deleting a trust boundary now keeps its members (they move up to its parent) where it used to leave them
-    with no parent: stated in API.md, with no new asset or entry point.
+  - Trust boundaries (current): the generate endpoint is named among the /api/v1 entry points; it is in the same
+    trust tier as the single-record threat endpoints.
+  - Tampering: Mitigated (Phase 2 Milestone 3): a rule-generated threat is written only by the rule engine; its
+    element and rule cannot change (`threats_rule_link_immutable`), there is at most one per element and rule
+    (`threats_rule_key`), and `stale` sits outside every client schema. The earlier line "Only server-side writers
+    may record those, and none exist before Phase 2" is replaced.
+  - Repudiation: Partially mitigated (Phase 2 Milestone 3): a generation run writes one stdout line with the
+    account, the threat model and the counts.
+  - Denial of Service: Partially mitigated (Phase 2 Milestone 3): one run is bounded by the 1,000-element limit and
+    the shipped library, and holds the threat model's lock while it runs, so element writes to that model queue
+    behind it.
+  - Elevation of Privilege: no widening. Any authenticated account could already create threats and mitigations by
+    hand; generation creates only what the shipped, reviewed rules describe.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -195,7 +199,7 @@ webhook targets.
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
 `/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document; since Phase 2 Milestone 1 `/api/v1`
-includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request),
+includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request, and since Phase 2 Milestone 3 `POST /api/v1/threat-models/{id}/threats/generate`, which creates the threats and mitigations the shipped rules propose for a diagram),
 where everything but login and
 session sign-in sits behind authentication: a bearer token for `/api/users` and `/api/v1`, the session
 cookie for the rest of `/api/session`. Since Phase 1 Milestone 6 the same app also serves the web app
@@ -268,7 +272,15 @@ webhooks.
   relabelled later. *Mitigated (Phase 1 Milestone 5)*: a threat created through `/api/v1` is always
   `origin = 'manual'`: a request for `rule` or `ai` is rejected, and `origin` cannot be changed, so
   a client cannot fake rule or AI provenance (Principle VI). Only server-side writers may record
-  those, and none exist before Phase 2. Milestone 4's legacy-link protection is retired with the
+  those. *Mitigated (Phase 2 Milestone 3)*: the rule engine (`apps/api/src/rule-engine/`) is the only
+  writer of `origin = 'rule'`. A generated threat's `element_id` and `library_ref` cannot change, whoever
+  asks, and an unchanged value is not a change (`threats_rule_link_immutable`, in the database, answered
+  `400` through `/api/v1`), so a client can neither re-point it nor fake which rule produced it. There is at
+  most one generated threat per element and rule (`threats_rule_key`), a generated threat must name both
+  (`threats_rule_link`), and `stale`, the marker that a generated threat no longer fits the diagram, is set
+  only by the engine, only on generated threats (`threats_stale_rule_only`), and is outside every client
+  schema. A run is one transaction under the threat model's lock, so a failure leaves nothing half-written.
+  Milestone 4's legacy-link protection is retired with the
   links: Milestone 5 removed the imported data, the link table and the legacy entry table.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat-model record or a user — the JWT's `sub` is known per-request but never written to storage.
@@ -281,6 +293,9 @@ webhooks.
   until Phase 6's audit log. *Partially mitigated (Phase 1 Milestone 6)*: every sign-in, failed
   sign-in, throttled sign-in, logout, sign out everywhere and session end writes one stdout line with
   ids and an event name only, never a username, password, credential, token or client address.
+  *Partially mitigated (Phase 2 Milestone 3)*: every generation run writes one stdout line with the
+  account id, the threat model id and the counts of what it created and flagged, never a name or a threat's
+  text; the threats and mitigations it creates get no line each.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
   server-side only (`apps/api/src/app.ts` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
@@ -309,7 +324,11 @@ webhooks.
   elements, enforced by a database trigger that every writer passes through, and a batch carries at most 200
   operations, so a single request cannot make an unbounded write; the model lock a write takes
   (`FOR NO KEY UPDATE` on the threat model row) queues writers to one model without blocking reads or other
-  models. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
+  models. *Partially mitigated (Phase 2 Milestone 3)*: one generation run is bounded by the
+  1,000-element limit times the shipped library's per-element maximum (today up to 15 threats and 49
+  mitigations for one element), so about 15,000 threats and 49,000 mitigations, written in chunked
+  statements inside one transaction (measured at about a second). It holds the threat model's lock for its duration, so element
+  writes to that model, and other runs on it, queue behind it. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
   rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
@@ -331,6 +350,10 @@ webhooks.
   *No widening (Phase 2 Milestone 1)*: the batch endpoint is in the same trust tier as the
   single-record element endpoints and can do nothing they cannot, and it cannot reach across threat models:
   an operation on an element of another model is the same as one on a missing element.
+  *No widening (Phase 2 Milestone 3)*: the generate endpoint is in the same trust tier as the single-record
+  threat endpoints. Any authenticated account could already create threats and mitigations by hand; generation
+  creates only what the shipped, reviewed rules describe, and it gives a client less power over a generated
+  threat than over a manual one (its element and rule cannot be changed).
 
 Any change that adds an endpoint, a new external integration, or a new credential type MUST add
 or update a bullet above in the same PR, whether or not the surrounding phase has been reached.
@@ -371,4 +394,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.7.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-08
+**Version**: 1.8.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-08

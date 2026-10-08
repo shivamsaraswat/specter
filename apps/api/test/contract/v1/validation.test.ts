@@ -89,7 +89,7 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
   }
 
   it('covers every resource operation', () => {
-    expect(resourceOperations).toHaveLength(27);
+    expect(resourceOperations).toHaveLength(28);
   });
 
   describe('path ids', () => {

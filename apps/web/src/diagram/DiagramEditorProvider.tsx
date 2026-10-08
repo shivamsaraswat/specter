@@ -5,7 +5,7 @@ import { keys, useBatchElements, useElements } from '../api/queries.js';
 import { useSession } from '../session/SessionProvider.js';
 import { DiagramHistory, type HistoryStep } from './history.js';
 import { applyActions, inverseOf, type BatchOp, type DiagramAction } from './operations.js';
-import { SaveQueue, type QueueSnapshot } from './save-queue.js';
+import { SaveQueue, type QueueSnapshot, type SaveStatus } from './save-queue.js';
 
 // The state of one threat model's diagram editor: what is on screen, and the queue that saves it. It
 // lives above the two tabs, so switching tabs keeps unsaved changes (FR-001b), and it is discarded when
@@ -28,6 +28,8 @@ export interface DiagramEditor {
   // Shows an action now and saves it.
   apply: (action: DiagramAction) => void;
   retry: () => void;
+  // Resolves when every change the user made has been saved, or the save has stopped (generate waits on it).
+  whenSettled: () => Promise<SaveStatus>;
   // The ids selected on the canvas, nodes and flows alike. The properties panel shows the one selected.
   selectedIds: readonly string[];
   select: (ids: readonly string[]) => void;
@@ -180,6 +182,7 @@ export function DiagramEditorProvider({ threatModelId, children }: { threatModel
       pendingCount: snapshot.pending.length,
       apply,
       retry: () => queue.retry(),
+      whenSettled: () => queue.whenSettled(),
       selectedIds,
       select,
       focusNameFor,

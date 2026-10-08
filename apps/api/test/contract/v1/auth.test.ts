@@ -19,10 +19,10 @@ describe('authentication on every /api/v1 operation (FR-004, spec Story 1 scenar
     await server.close();
   });
 
-  // Guards against this file passing without checking anything: the contract lists 27 resource
-  // operations (the 28th, the OpenAPI document, is covered by openapi.test.ts).
-  it('covers all 27 resource operations', () => {
-    expect(resourceOperations).toHaveLength(27);
+  // Guards against this file passing without checking anything: the contract lists 28 resource
+  // operations (the 29th, the OpenAPI document, is covered by openapi.test.ts).
+  it('covers all 28 resource operations', () => {
+    expect(resourceOperations).toHaveLength(28);
   });
 
   const call = (method: string, path: string, token: string | null) =>

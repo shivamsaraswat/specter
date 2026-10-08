@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../../../src/app.js';
+import db from '../../../src/db.js';
 import { login, startTestServer, type TestServer } from '../helpers.js';
 import {
   accountIdOf,
@@ -178,6 +179,57 @@ describe('the write log (FR-014a)', () => {
         ]);
         expect(res.status).toBe(404);
         expect(log.raw()).toEqual([]);
+      } finally {
+        log.restore();
+      }
+    });
+  });
+
+  describe('generating threats (FR-018)', () => {
+    const SECRET = 'SECRET-ELEMENT-NAME';
+
+    it('writes one generate line with ids and counts, and no line for each threat or mitigation', async () => {
+      const project = (await c.post<ApiRecord>('/projects', { name: uniqueName(SECRET) })).body;
+      const model = (await c.post<ApiRecord>('/threat-models', { project_id: project.id, name: SECRET })).body;
+      await c.post('/elements', { threat_model_id: model.id, type: 'process', name: SECRET });
+      const old = (await c.post<ApiRecord>('/elements', { threat_model_id: model.id, type: 'process', name: 'Old' })).body;
+      await db.query(`UPDATE elements SET properties = '{"flags":{"legacy_flag":true}}'::jsonb WHERE id = $1`, [old.id]);
+
+      const log = captureWriteLog();
+      try {
+        const res = await c.post<{ created: number; existing: number; newly_stale: number; no_longer_stale: number }>(
+          `/threat-models/${model.id}/threats/generate`,
+          {},
+        );
+        expect(res.status).toBe(200);
+        const generate = log.raw().filter((line) => line.startsWith('{"event":"generate"'));
+        expect(generate).toHaveLength(1);
+        expect(JSON.parse(generate[0] as string)).toEqual({
+          event: 'generate',
+          account_id: accountId,
+          threat_model_id: model.id,
+          created: res.body.created,
+          existing: res.body.existing,
+          newly_stale: res.body.newly_stale,
+          no_longer_stale: res.body.no_longer_stale,
+          skipped: 1,
+        });
+        expect(res.body.created).toBeGreaterThan(0);
+        // Not one line per threat or mitigation, and never a name or the skipped element's id.
+        expect(log.lines()).toEqual([]);
+        expect(log.raw().join('\n')).not.toContain(SECRET);
+        expect(log.raw().join('\n')).not.toContain(old.id);
+      } finally {
+        log.restore();
+      }
+    });
+
+    it('writes nothing for a call that fails', async () => {
+      const log = captureWriteLog();
+      try {
+        const res = await c.post(`/threat-models/${randomUUID()}/threats/generate`, {});
+        expect(res.status).toBe(404);
+        expect(log.raw().filter((line) => line.includes('"event":"generate"'))).toEqual([]);
       } finally {
         log.restore();
       }

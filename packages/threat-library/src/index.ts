@@ -1,3 +1,4 @@
+export type { UnmetCondition } from '@specter/core';
 export type { Candidate, ElementInput, FlowContext } from './evaluate.js';
 export { LibraryInputError, LibraryLoadError, type LoadIssue } from './errors.js';
 export type { CoverageRow, Library, LookupResult, RetirementRecord, Rule } from './library.js';
