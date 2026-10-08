@@ -1,0 +1,30 @@
+id: df-tampering-untrusted-data-into-store
+element_type: data_flow
+category: Tampering
+title: "Data crossing a trust boundary into {{target}} may carry content that corrupts it"
+description: >-
+  {{element}} brings data from outside a trust boundary straight toward {{target}}, a data store.
+  Content that is malformed or crafted to be misread, such as injected query fragments, oversized
+  values or unexpected structure, can corrupt what is stored.
+likelihood: Medium
+impact: High
+when:
+  flow:
+    crosses_trust_boundary: yes
+    target_type: data_store
+mitigations:
+  - Validate data at the service that writes to the store, against a strict schema, before anything
+    is stored.
+  - Use parameterized statements and typed APIs; never build queries by joining strings.
+  - Let the store enforce what it can, such as types, lengths and constraints.
+references:
+  - CWE-20
+  - CWE-89
+  - CAPEC-66
+examples:
+  applies:
+    - flow: { crosses_trust_boundary: yes, source_type: process, target_type: data_store }
+    - flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: data_store }
+  does_not_apply:
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: data_store }
+    - flow: { crosses_trust_boundary: yes, source_type: process, target_type: process }

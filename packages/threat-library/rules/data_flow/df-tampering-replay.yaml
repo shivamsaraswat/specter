@@ -1,0 +1,30 @@
+id: df-tampering-replay
+element_type: data_flow
+category: Tampering
+title: "A captured message from {{source}} to {{target}} can be sent again"
+description: >-
+  {{element}} is authenticated, but authentication proves who sent a message, not that it is fresh.
+  Someone who captures a valid message, for example a payment or a command, can send it again and
+  {{target}} will accept it a second time.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    authenticated: yes
+mitigations:
+  - Include a unique identifier or a timestamp in each message and have the receiver reject repeats
+    and old ones.
+  - Make operations idempotent where you can, so a repeat has no further effect.
+  - Keep signed messages valid for a short time only.
+references:
+  - CWE-294
+examples:
+  applies:
+    - flags: { authenticated: yes }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flags: { authenticated: yes }
+      flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+  does_not_apply:
+    - flags: { authenticated: no }
+      flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: process }

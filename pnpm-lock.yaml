@@ -156,6 +156,18 @@ importers:
         specifier: ^8.23.1
         version: 8.23.1
 
+  packages/threat-library:
+    dependencies:
+      '@specter/core':
+        specifier: workspace:*
+        version: link:../core
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
 packages:
 
   '@asamuzakjp/css-color@7.1.3':

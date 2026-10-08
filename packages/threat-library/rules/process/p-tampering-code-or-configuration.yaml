@@ -1,0 +1,23 @@
+id: p-tampering-code-or-configuration
+element_type: process
+category: Tampering
+title: "The code, dependencies or configuration of {{element}} can be altered"
+description: >-
+  An attacker who can change what {{element}} runs gets everything the process can do. The route can
+  be a poisoned dependency, a tampered build or image, or a changed configuration or environment
+  variable.
+likelihood: Low
+impact: High
+mitigations:
+  - Build from pinned dependencies with a lockfile, review dependency updates, and keep the build
+    pipeline under the same access controls as production.
+  - Sign build artefacts and images, and verify the signature before running them.
+  - Limit who can change deployment settings and configuration, and keep a record of every change.
+  - Keep configuration read-only for the running process.
+references:
+  - CWE-494
+  - CWE-829
+  - CAPEC-184
+examples:
+  applies:
+    - {}

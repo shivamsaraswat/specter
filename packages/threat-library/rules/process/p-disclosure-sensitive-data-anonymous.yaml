@@ -1,0 +1,29 @@
+id: p-disclosure-sensitive-data-anonymous
+element_type: process
+category: Information Disclosure
+title: "Sensitive data handled by {{element}} is open to anyone who can reach it"
+description: >-
+  {{element}} handles sensitive data and does not require callers to authenticate. Anyone who can
+  connect can ask for the data, with nothing to tie the request to a person who is allowed to see
+  it.
+likelihood: High
+impact: High
+when:
+  flags:
+    handles_sensitive_data: yes
+    requires_authentication: no
+mitigations:
+  - Require authentication, and authorize each request against the data it asks for, before
+    returning sensitive data.
+  - Keep sensitive functions off any interface that must stay public.
+  - Return the minimum fields each caller needs.
+references:
+  - CWE-306
+  - CWE-200
+examples:
+  applies:
+    - flags: { handles_sensitive_data: yes, requires_authentication: no }
+    - flags: { handles_sensitive_data: yes }
+  does_not_apply:
+    - flags: { handles_sensitive_data: yes, requires_authentication: yes }
+    - flags: { handles_sensitive_data: no, requires_authentication: no }

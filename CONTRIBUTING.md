@@ -81,6 +81,25 @@ a summary, and the constitution wins if they ever differ.
 - **Update the Threat Model** in the constitution in the same change if yours adds an asset, an
   entry point or a new trust boundary (Principle V).
 
+## Threat rules
+
+The threats Specter suggests come from rules kept as YAML files in
+[`packages/threat-library/rules/`](packages/threat-library/rules/), not from code. You can add or
+improve a rule without touching any TypeScript. The package's
+[README](packages/threat-library/README.md) explains the format, how to choose an id, how to write the
+examples and how to retire a rule. Rule changes are reviewed like code. The checks run with
+`pnpm --filter @specter/threat-library test`, and they name the file, the rule and the problem.
+
+Two rules are enforced in review, because the checks cannot see a rule's earlier version:
+
+- A rule that describes a **different threat** (another element type, category or conditions) is
+  retired and replaced under a **new id**, not edited. The id is recorded on every threat the rule
+  produces.
+- **Nothing is removed from `rules/ids.yaml`.** It lists every id ever issued.
+
+Write rule text yourself. Don't copy from other tools' templates or catalogs unless their license
+allows it under Apache-2.0. Citing CWE and CAPEC numbers is fine.
+
 ## Commit messages
 
 Use a short conventional prefix and say what changed. This project's history looks like:

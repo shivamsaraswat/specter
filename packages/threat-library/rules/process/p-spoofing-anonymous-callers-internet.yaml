@@ -1,0 +1,32 @@
+id: p-spoofing-anonymous-callers-internet
+element_type: process
+category: Spoofing
+variant_group: p-anonymous-callers
+title: "Anyone on the internet can call {{element}} without proving who they are"
+description: >-
+  {{element}} accepts connections from the public internet and does not require callers to
+  authenticate. It cannot tell one caller from another, so it cannot limit what any of them may do,
+  and every caller is effectively anonymous and equally trusted.
+likelihood: High
+impact: High
+when:
+  flags:
+    requires_authentication: no
+    internet_facing: yes
+mitigations:
+  - Require callers to authenticate before any function that reads or changes data, and deny by
+    default.
+  - Use an established mechanism, such as OAuth 2.0 / OpenID Connect or mutual TLS, instead of
+    building your own.
+  - Keep genuinely public functions few, listed, and separate from the rest.
+references:
+  - CWE-306
+  - CWE-287
+  - CAPEC-115
+examples:
+  applies:
+    - flags: { requires_authentication: no, internet_facing: yes }
+    - flags: { requires_authentication: not_assessed, internet_facing: yes }
+  does_not_apply:
+    - flags: { requires_authentication: yes, internet_facing: yes }
+    - flags: { requires_authentication: no, internet_facing: no }

@@ -31,3 +31,8 @@ See the [constitution](https://github.com/shivamsaraswat/specter/blob/main/.spec
 
 <!-- The tests you wrote first, and what they cover. Which of these you ran locally:
      pnpm typecheck, pnpm lint, pnpm test, pnpm test:e2e, docker build . -->
+
+<!-- Threat rules: if this changes `packages/threat-library/rules/`, did an existing rule's
+     `element_type`, `category` or `when` change? If so, retire it and add a new rule under a new id
+     instead (spec FR-021). Did any line disappear from `rules/ids.yaml`? None may (FR-019a). The
+     checks cannot see either, so review enforces both. Write "N/A" if rules are untouched. -->

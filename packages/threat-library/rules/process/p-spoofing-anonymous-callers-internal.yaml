@@ -1,0 +1,31 @@
+id: p-spoofing-anonymous-callers-internal
+element_type: process
+category: Spoofing
+variant_group: p-anonymous-callers
+title: "Anyone inside the network can call {{element}} without proving who they are"
+description: >-
+  {{element}} is reachable only from inside the network, but it does not require callers to
+  authenticate. A compromised machine, a misconfigured service or a curious insider can call it as
+  if they were any legitimate client.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    requires_authentication: no
+    internet_facing: no
+mitigations:
+  - Require callers to authenticate even on the internal network; being inside is not proof of being
+    trusted.
+  - Give each calling service its own identity so that actions can be traced and one compromise
+    stays contained.
+  - Restrict which machines can reach the process at all.
+references:
+  - CWE-306
+  - CWE-287
+examples:
+  applies:
+    - flags: { requires_authentication: no, internet_facing: no }
+    - {}
+  does_not_apply:
+    - flags: { requires_authentication: yes }
+    - flags: { requires_authentication: no, internet_facing: yes }

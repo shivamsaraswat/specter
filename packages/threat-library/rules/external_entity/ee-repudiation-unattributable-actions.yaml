@@ -1,0 +1,26 @@
+id: ee-repudiation-unattributable-actions
+element_type: external_entity
+category: Repudiation
+title: "Actions by {{element}} cannot be tied to anyone"
+description: >-
+  {{element}} does not authenticate, so the system cannot say who was behind a request. After an
+  incident or a dispute there is nothing to link the actions to a person or a system.
+likelihood: High
+impact: Medium
+when:
+  flags:
+    authenticated: no
+mitigations:
+  - Authenticate the entity so every request is tied to an identity.
+  - Where authentication is not possible, record the source address, time and the exact request, and
+    say plainly that this is weaker evidence.
+  - Give each external party its own identity instead of a shared one.
+references:
+  - CWE-778
+  - CWE-306
+examples:
+  applies:
+    - flags: { authenticated: no }
+    - {}
+  does_not_apply:
+    - flags: { authenticated: yes }

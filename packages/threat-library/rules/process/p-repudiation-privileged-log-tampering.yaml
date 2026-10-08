@@ -1,0 +1,26 @@
+id: p-repudiation-privileged-log-tampering
+element_type: process
+category: Repudiation
+title: "An attacker who takes over {{element}} can erase its logs"
+description: >-
+  {{element}} runs with elevated privileges. If it can also write to or delete its own logs, an
+  attacker who compromises it can remove the evidence of what they did.
+likelihood: Low
+impact: High
+when:
+  flags:
+    runs_privileged: yes
+mitigations:
+  - Send logs to a separate system as they are written, using an account that can only append.
+  - Do not give the process the rights to delete or alter logs that have been shipped.
+  - Chain or sign log entries so that a gap or a change can be seen.
+references:
+  - CAPEC-93
+  - CAPEC-268
+  - CWE-778
+examples:
+  applies:
+    - flags: { runs_privileged: yes }
+  does_not_apply:
+    - flags: { runs_privileged: no }
+    - {}

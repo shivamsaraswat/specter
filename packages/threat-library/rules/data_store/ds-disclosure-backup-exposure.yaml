@@ -1,0 +1,27 @@
+id: ds-disclosure-backup-exposure
+element_type: data_store
+category: Information Disclosure
+title: "Copies of {{element}}, such as backups and exports, may be less protected than the original"
+description: >-
+  Sensitive data in {{element}} does not stay in one place: it is copied into backups, exports,
+  replicas and test environments. Each copy is often guarded less well than the store itself, and
+  any one of them can leak the lot.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    stores_sensitive_data: yes
+mitigations:
+  - Give every copy the same access control and encryption as the original, and list where copies
+    exist.
+  - Do not use real sensitive data in test environments; mask or generate it.
+  - Delete copies when they are no longer needed and check that old ones expire.
+references:
+  - CWE-922
+  - CWE-200
+examples:
+  applies:
+    - flags: { stores_sensitive_data: yes }
+  does_not_apply:
+    - flags: { stores_sensitive_data: no }
+    - {}

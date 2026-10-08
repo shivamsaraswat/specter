@@ -1,0 +1,34 @@
+id: ee-spoofing-unauthenticated-internet
+element_type: external_entity
+category: Spoofing
+variant_group: ee-impersonation
+title: "Anyone on the internet can pose as {{element}}"
+description: >-
+  {{element}} reaches the system from the public internet and does not prove who it is. Without
+  authentication the system cannot tell the real {{element}} from an attacker who sends the same
+  requests.
+
+  Whatever the system lets this entity do, an impostor can do too.
+likelihood: High
+impact: High
+when:
+  flags:
+    authenticated: no
+    internet_facing: yes
+mitigations:
+  - Require the entity to authenticate before the system acts on its requests, for example with
+    signed tokens, mutual TLS or API keys tied to one identity.
+  - Reject unauthenticated requests by default instead of allowing them until a check fails.
+  - Limit what an authenticated identity may do to what this entity actually needs.
+references:
+  - CWE-306
+  - CWE-287
+  - CAPEC-151
+examples:
+  applies:
+    - flags: { authenticated: no, internet_facing: yes }
+    - flags: { authenticated: not_assessed, internet_facing: yes }
+  does_not_apply:
+    - flags: { authenticated: yes, internet_facing: yes }
+    - flags: { authenticated: no, internet_facing: no }
+    - flags: { authenticated: no }

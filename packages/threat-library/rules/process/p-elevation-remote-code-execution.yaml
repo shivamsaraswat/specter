@@ -1,0 +1,28 @@
+id: p-elevation-remote-code-execution
+element_type: process
+category: Elevation of Privilege
+title: "Input from the internet could make {{element}} run an attacker's code"
+description: >-
+  {{element}} is reachable from the internet. If it evaluates input as code, deserializes untrusted
+  data, handles uploaded files unsafely or uses a vulnerable dependency, an attacker can make it run
+  their code and gain whatever the process itself can do.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    internet_facing: yes
+mitigations:
+  - Never evaluate input as code, and do not deserialize untrusted data into objects; use plain data
+    formats and strict schemas.
+  - Keep the runtime and the dependencies patched, and watch for new advisories.
+  - "Limit the damage if it happens: least privilege, a sandbox or container boundary, and restricted outbound connections."
+references:
+  - CWE-94
+  - CWE-502
+  - CAPEC-242
+examples:
+  applies:
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: no }
+    - {}

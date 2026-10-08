@@ -1,0 +1,27 @@
+id: p-repudiation-sensitive-access-unlogged
+element_type: process
+category: Repudiation
+title: "Access to sensitive data through {{element}} leaves no trail"
+description: >-
+  {{element}} handles sensitive data. If reads, exports and changes of that data are not recorded
+  with who did them, a leak or a misuse cannot be traced, and a person who misused their access can
+  deny it.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    handles_sensitive_data: yes
+mitigations:
+  - Record every read, export and change of sensitive records with the acting identity, the time and
+    the purpose where it is known.
+  - Alert on unusual access, such as bulk reads or access outside normal hours.
+  - Protect the records from the people they describe.
+references:
+  - CWE-778
+  - CWE-223
+examples:
+  applies:
+    - flags: { handles_sensitive_data: yes }
+  does_not_apply:
+    - flags: { handles_sensitive_data: no }
+    - {}

@@ -1,0 +1,25 @@
+id: ds-repudiation-sensitive-reads-unlogged
+element_type: data_store
+category: Repudiation
+title: "Reads of sensitive data in {{element}} leave no record"
+description: >-
+  {{element}} stores sensitive data. If reads are not logged, a leak cannot be traced to an account
+  or a time, and anyone with access can look without being accountable.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    stores_sensitive_data: yes
+mitigations:
+  - Turn on access logging for the sensitive tables, buckets or files, with the identity that made
+    each request.
+  - Send those logs to a separate system, and alert on bulk reads and unusual access.
+  - Keep them for as long as a leak could still be discovered.
+references:
+  - CWE-778
+examples:
+  applies:
+    - flags: { stores_sensitive_data: yes }
+  does_not_apply:
+    - flags: { stores_sensitive_data: no }
+    - {}

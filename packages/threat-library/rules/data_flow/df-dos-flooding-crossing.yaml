@@ -1,0 +1,28 @@
+id: df-dos-flooding-crossing
+element_type: data_flow
+category: Denial of Service
+variant_group: df-flooding
+title: "{{source}} can flood {{target}} with messages across a trust boundary"
+description: >-
+  {{element}} crosses a trust boundary. The sending side is less trusted than the receiving side, so
+  it can send more than {{target}} can handle, by mistake or on purpose, and crowd out other work.
+likelihood: Medium
+impact: Medium
+when:
+  flow:
+    crosses_trust_boundary: yes
+mitigations:
+  - Limit the rate and size of what the receiver accepts from this sender, and drop or queue the
+    excess instead of processing it.
+  - Use a queue or buffer so bursts are absorbed, with a bound on its size.
+  - Monitor volumes, and alert when a sender exceeds what is normal.
+references:
+  - CWE-400
+  - CWE-770
+  - CAPEC-125
+examples:
+  applies:
+    - flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }
+    - flow: { crosses_trust_boundary: yes, source_type: process, target_type: data_store }
+  does_not_apply:
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: process }

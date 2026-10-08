@@ -1,0 +1,27 @@
+id: p-disclosure-sensitive-data-in-logs
+element_type: process
+category: Information Disclosure
+title: "{{element}} may write sensitive data into logs, metrics or traces"
+description: >-
+  Logs are copied, indexed, shipped and read by many people and tools. If {{element}} writes
+  sensitive values into them, such as passwords, tokens, personal data or request bodies, the data
+  ends up in places with much weaker protection than the system it came from.
+likelihood: Medium
+impact: Medium
+when:
+  flags:
+    handles_sensitive_data: yes
+mitigations:
+  - Decide which fields are sensitive and keep them out of logs, error reports and traces; mask or
+    drop them before they are written.
+  - Review logging statements, and add tests that check for leaks of known sensitive values.
+  - Limit who can read logs and how long they are kept.
+references:
+  - CWE-532
+  - CWE-200
+examples:
+  applies:
+    - flags: { handles_sensitive_data: yes }
+  does_not_apply:
+    - flags: { handles_sensitive_data: no }
+    - {}

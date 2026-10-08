@@ -1,0 +1,27 @@
+id: df-dos-external-dependency-unavailable
+element_type: data_flow
+category: Denial of Service
+title: "{{source}} stops working when the outside party {{target}} is slow or down"
+description: >-
+  {{element}} sends work to {{target}}, which is outside the system. You do not run it and cannot
+  make it available, so when it is slow or down {{source}} can be left waiting, and the failure
+  spreads to whoever depends on {{source}}.
+likelihood: Medium
+impact: Medium
+when:
+  flow:
+    target_type: external_entity
+mitigations:
+  - Set timeouts and a bounded number of retries with backoff on every call to the outside party.
+  - Use a circuit breaker, and decide in advance what the system does while the outside party is
+    unavailable, such as queueing the work or showing a cached answer.
+  - Monitor the outside party's availability, and agree what you can expect from them.
+references:
+  - CWE-703
+examples:
+  applies:
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: external_entity }
+    - flow: { crosses_trust_boundary: yes, source_type: process, target_type: external_entity }
+  does_not_apply:
+    - flow: { crosses_trust_boundary: no, source_type: process, target_type: process }
+    - flow: { crosses_trust_boundary: yes, source_type: external_entity, target_type: process }

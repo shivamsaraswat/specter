@@ -1,0 +1,31 @@
+id: p-spoofing-session-hijacking
+element_type: process
+category: Spoofing
+title: "A stolen session lets an attacker act as a signed-in user of {{element}}"
+description: >-
+  Once a user has signed in, {{element}} recognises them by a session credential. Anyone who obtains
+  that credential, for example through a script injected into a page, a leaked log line or a stolen
+  device, can act as the user until the session ends.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    requires_authentication: yes
+mitigations:
+  - Keep session credentials out of reach of scripts, for example in HttpOnly cookies, and never put
+    them in URLs or logs.
+  - Make sessions short-lived, rotate credentials on every renewal and end the session on sign-out
+    and on a password change.
+  - Offer a way to end all of a user's sessions at once.
+  - Detect the reuse of a replaced credential and end the session when it happens.
+references:
+  - CWE-384
+  - CWE-613
+  - CAPEC-593
+  - CAPEC-60
+examples:
+  applies:
+    - flags: { requires_authentication: yes }
+  does_not_apply:
+    - flags: { requires_authentication: no }
+    - {}

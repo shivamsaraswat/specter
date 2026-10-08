@@ -1,0 +1,19 @@
+id: p-repudiation-no-audit-log
+element_type: process
+category: Repudiation
+title: "Actions taken through {{element}} cannot be reconstructed later"
+description: >-
+  Without a record of security-relevant events, nobody can say afterwards who signed in, who changed
+  what or what an attacker did. {{element}} may do the right thing and still be unable to prove it.
+likelihood: Medium
+impact: Medium
+mitigations:
+  - "Log security-relevant events with who, what, when and the outcome: sign-ins and failures, permission changes, data changes and administrative actions."
+  - Send logs off the machine to storage that the process cannot rewrite.
+  - Keep logs for as long as incidents and disputes can surface, and review them or alert on them.
+references:
+  - CWE-778
+  - CWE-223
+examples:
+  applies:
+    - {}

@@ -1,0 +1,29 @@
+id: ds-tampering-unauthorized-write-internet
+element_type: data_store
+category: Tampering
+variant_group: ds-unauthorized-write
+title: "Anyone on the internet could change data in {{element}}"
+description: >-
+  {{element}} can be reached directly from the public internet. If its access controls are weak or
+  missing, or a credential leaks, an attacker can add, change or delete records and nobody will know
+  the data can no longer be trusted.
+likelihood: High
+impact: High
+when:
+  flags:
+    internet_facing: yes
+mitigations:
+  - Do not expose the store to the internet. Put it on a private network behind a service that
+    authenticates and authorizes every request.
+  - Where direct access cannot be avoided, deny by default, allow only known addresses and require
+    strong credentials and TLS.
+  - Give each consumer its own account with the fewest rights it needs.
+references:
+  - CWE-284
+  - CWE-668
+examples:
+  applies:
+    - flags: { internet_facing: yes }
+  does_not_apply:
+    - flags: { internet_facing: no }
+    - {}

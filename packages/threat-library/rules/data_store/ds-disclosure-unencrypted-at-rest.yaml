@@ -1,0 +1,30 @@
+id: ds-disclosure-unencrypted-at-rest
+element_type: data_store
+category: Information Disclosure
+title: "Sensitive data in {{element}} can be read from disks, snapshots or stolen media"
+description: >-
+  {{element}} stores sensitive data without encryption at rest. Anyone who gets hold of the
+  underlying disk, a snapshot, a backup file or a decommissioned drive can read it directly,
+  bypassing every access control in the application.
+likelihood: Medium
+impact: High
+when:
+  flags:
+    stores_sensitive_data: yes
+    encrypted_at_rest: no
+mitigations:
+  - Turn on encryption at rest for the store, its replicas, snapshots and backups, using a managed
+    key service.
+  - Keep the keys apart from the data, with their own access controls and logging, and rotate them.
+  - Encrypt the most sensitive fields in the application as well, if a person with store access
+    should not read them.
+references:
+  - CWE-311
+  - CWE-312
+examples:
+  applies:
+    - flags: { stores_sensitive_data: yes, encrypted_at_rest: no }
+    - flags: { stores_sensitive_data: yes }
+  does_not_apply:
+    - flags: { stores_sensitive_data: yes, encrypted_at_rest: yes }
+    - flags: { stores_sensitive_data: no, encrypted_at_rest: no }
