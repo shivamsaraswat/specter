@@ -17,7 +17,11 @@ export const elementsOf = async (base: string, token: string, modelId: string): 
   (await apiRequest(base, token, 'GET', `/api/v1/threat-models/${modelId}/elements`)).body as Stored[];
 
 export const canvasOf = (page: Page) => page.getByRole('application', { name: 'Data-flow diagram' });
-export const nodeOf = (page: Page, name: string) => canvasOf(page).locator('.react-flow__node').filter({ hasText: new RegExp(`^${name}$`) });
+// Found by its label, not by all of its text: a node with open threats also carries the count (Phase 2 M4).
+export const nodeOf = (page: Page, name: string) =>
+  canvasOf(page)
+    .locator('.react-flow__node')
+    .filter({ has: page.locator('.diagram-node__label, .diagram-boundary__label', { hasText: new RegExp(`^${name}$`) }) });
 
 // A node's position on the diagram itself, which does not change with panning or zooming.
 export async function positionOnDiagram(node: Locator): Promise<{ x: number; y: number }> {

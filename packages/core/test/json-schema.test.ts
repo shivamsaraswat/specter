@@ -46,6 +46,7 @@ describe('JSON Schema from the shared definitions', () => {
     // A nullable field keeps its limit on the string branch.
     expect(at(schemas, 'MitigationCreateInput', 'properties', 'external_ref', 'anyOf', 0, 'maxLength')).toBe(2048);
     expect(at(schemas, 'ThreatCreateInput', 'properties', 'library_ref', 'anyOf', 0, 'maxLength')).toBe(200);
+    expect(at(schemas, 'ThreatCreateInput', 'properties', 'status_reason', 'anyOf', 0, 'maxLength')).toBe(10_000);
   });
 
   it('describes a stored timestamp as an ISO date-time string', () => {

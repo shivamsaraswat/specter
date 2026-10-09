@@ -50,7 +50,8 @@ describe('the threat model page’s threats', () => {
       const reads = api.calls.filter((c) => c.method === 'GET' && c.path.startsWith('/api/v1')).map((c) => c.path);
       expect(reads.sort()).toEqual(expected);
     });
-    expect(screen.getByText('API gateway')).toBeTruthy();
+    // The threat's element, in the table. The element filter offers its name too.
+    expect(within(screen.getByRole('table')).getByText('API gateway')).toBeTruthy();
   });
 
   it('shows an empty state with an Add threat button', async () => {

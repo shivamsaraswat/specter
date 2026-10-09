@@ -36,6 +36,7 @@ const MESSAGES = {
   moved: 'A record cannot be moved to another parent',
   origin: 'origin cannot change',
   ruleLink: 'A rule-generated threat stays linked to its element and rule',
+  statusReason: 'status_reason can only be set on a threat that is accepted or not_applicable',
   backstop: 'The request breaks a data rule',
   limit: 'A threat model can hold at most 1,000 elements',
   elementId: 'An element with this id already exists',
@@ -70,6 +71,7 @@ describe('mapStorageError, row by row', () => {
     ['23514', 'mitigations_threat_immutable', 'write', 400, MESSAGES.moved],
     ['23514', 'threats_origin_immutable', 'write', 400, MESSAGES.origin],
     ['23514', 'threats_rule_link_immutable', 'write', 400, MESSAGES.ruleLink],
+    ['23514', 'threats_status_reason_check', 'write', 400, MESSAGES.statusReason],
     ['23514', 'elements_limit', 'write', 400, MESSAGES.limit],
     ['23505', 'elements_pkey', 'write', 409, MESSAGES.elementId],
     // The backstops: rules the request schemas already enforce, so normally never reached.
@@ -94,6 +96,16 @@ describe('mapStorageError, row by row', () => {
     ['null', null],
   ])('does not claim %s, so it reaches the 500 handler', (_label, err) => {
     expect(mapStorageError(err, 'write')).toBeNull();
+  });
+
+  it('names the status reason rule, so it never reaches the backstop (spec FR-007)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      mapStorageError({ code: '23514', constraint: 'threats_status_reason_check' }, 'write');
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('logs a backstop with its SQLSTATE and constraint, never the driver message or detail', () => {
@@ -256,6 +268,28 @@ describe('storage rules through the API', () => {
       expect(await c.post('/mitigations', { threat_id: randomUUID(), description: 'Orphan' })).toEqual(
         rejected(MESSAGES.noThreat),
       );
+    });
+  });
+
+  describe('a reason where the status takes none (400)', () => {
+    it('rejects a reason sent alone to an open threat, and changes nothing', async () => {
+      const threat = (
+        await c.post<ApiRecord>('/threats', {
+          threat_model_id: chain.model.id,
+          category: 'Spoofing',
+          title: 'No reason here',
+          likelihood: 'Low',
+          impact: 'Low',
+          origin: 'manual',
+        })
+      ).body;
+      expect(await c.patch(`/threats/${threat.id}`, { status_reason: 'x' })).toEqual(rejected(MESSAGES.statusReason));
+      const after = (await c.get<ApiRecord>(`/threats/${threat.id}`)).body;
+      expect(after).toMatchObject({ status: 'open', status_reason: null });
+    });
+
+    it('returns status_reason on a threat that has none', async () => {
+      expect((await c.get<ApiRecord>(`/threats/${chain.threat.id}`)).body.status_reason).toBeNull();
     });
   });
 

@@ -2,6 +2,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { Canvas } from '../diagram/Canvas.js';
 import { DiagramErrorBoundary } from '../diagram/DiagramErrorBoundary.js';
 import { DeleteDialogs } from '../diagram/DeleteDialogs.js';
+import { ElementThreats } from '../diagram/ElementThreats.js';
 import { ElementsList } from '../diagram/ElementsList.js';
 import { PropertiesPanel } from '../diagram/PropertiesPanel.js';
 import { SelectionAnnouncer } from '../diagram/SelectionAnnouncer.js';
@@ -23,6 +24,8 @@ export function DiagramTab() {
         <SelectionAnnouncer />
         <DeleteDialogs />
       </ReactFlowProvider>
+      {/* Outside the canvas and its provider: typing here never reaches the diagram's keys (spec edge case). */}
+      <ElementThreats />
     </DiagramErrorBoundary>
   );
 }

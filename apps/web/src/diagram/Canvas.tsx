@@ -41,11 +41,12 @@ const ARIA_LABELS = {
 // check its linked threats first (FR-021, FR-023), so the key is off here and the editor owns it.
 export function Canvas() {
   const editor = useDiagramEditor();
-  const { elements, isPending, loadError, reload, apply, select, setNotice, requestNameFocus, requestDelete, selectedIds } = editor;
+  const { elements, isPending, loadError, reload, apply, select, setNotice, requestNameFocus, requestDelete, selectedIds, openThreats } = editor;
 
   const resolved = useMemo(() => (elements ? resolveLayout(elements) : null), [elements]);
-  const flowNodes = useMemo(() => (elements && resolved ? toFlowNodes(elements, resolved) : []), [elements, resolved]);
-  const flowEdges = useMemo(() => (elements && resolved ? toFlowEdges(elements, resolved) : []), [elements, resolved]);
+  // A count that changes reaches only the nodes and flows it belongs to: the rest stay the very same objects (sameNode).
+  const flowNodes = useMemo(() => (elements && resolved ? toFlowNodes(elements, resolved, openThreats) : []), [elements, resolved, openThreats]);
+  const flowEdges = useMemo(() => (elements && resolved ? toFlowEdges(elements, resolved, openThreats) : []), [elements, resolved, openThreats]);
 
   // SELECTION has one owner: React Flow. It reports a click or a box-select as changes, which are applied
   // here, and the editor is told what ended up selected. Feeding the editor's selection back into the

@@ -20,6 +20,7 @@ function setup(pendingCount: number) {
             <LeaveGuard />
             <Link to={`${base}`}>Threats tab</Link>
             <Link to={`${base}/diagram`}>Diagram tab</Link>
+            <Link to={`${base}?status=open`}>Filtered threats</Link>
             <Link to="/projects">Projects</Link>
             <Outlet />
           </DiagramEditorContext.Provider>
@@ -99,6 +100,28 @@ describe('moving about without anything to lose', () => {
     await user.click(screen.getByRole('link', { name: 'Diagram tab' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(router.state.location.pathname).toBe(`/threat-models/${MODEL}/diagram`);
+  });
+});
+
+// The threat list keeps its filters in the address (Phase 2 M4), so choosing one is a navigation. It stays inside
+// the threat model, so it must never ask about unsaved diagram changes.
+describe('filtering the threat list with unsaved changes', () => {
+  it('does not ask for a move that changes only the query string', async () => {
+    const router = setup(3);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('link', { name: 'Threats tab' }));
+    await user.click(screen.getByRole('link', { name: 'Filtered threats' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(router.state.location.pathname).toBe(`/threat-models/${MODEL}`);
+    expect(router.state.location.search).toBe('?status=open');
+  });
+
+  it('still asks for a move out of the threat model', async () => {
+    setup(3);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('link', { name: 'Filtered threats' }));
+    await user.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 });
 

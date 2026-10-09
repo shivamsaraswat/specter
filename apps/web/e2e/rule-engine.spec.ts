@@ -113,6 +113,7 @@ test('a second run changes nothing, keeps the user’s edits, and brings back a 
     likelihood: 'Low',
     impact: 'Low',
     status: 'accepted',
+    status_reason: 'Mine to decide',
   });
   expect(edited.status).toBe(200);
 
@@ -122,14 +123,16 @@ test('a second run changes nothing, keeps the user’s edits, and brings back a 
   await expect(generateStatus(page)).toHaveText(`Generated threats: 0 created, ${total} already existed (of which 0 no longer stale), 0 newly stale.`);
   await page.reload();
   const row = page.getByRole('row').filter({ hasText: 'My own title' });
-  await expect(row).toContainText('accepted');
+  // The status is a select whose options always include "accepted", so its value is what is asserted.
+  await expect(row.getByRole('combobox', { name: /^Status of / })).toHaveValue('accepted');
+  await expect(row).toContainText('Mine to decide');
   expect(await threatsOf(base, token, modelId)).toHaveLength(total);
 
   // Step 6: deleting a generated threat warns that it will come back, and it does.
   await page.getByRole('button', { name: 'Delete threat My own title' }).click();
   const dialog = page.locator('dialog');
   await expect(dialog).toContainText('Generating threats again will create it again while its rule applies');
-  await expect(dialog).toContainText('set its status to Not applicable instead');
+  await expect(dialog).toContainText('set its status to Not applicable, with a reason, instead');
   await dialog.locator('button.danger').click();
   await expect(page.getByRole('row').filter({ hasText: 'My own title' })).toHaveCount(0);
 

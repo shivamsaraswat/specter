@@ -1,4 +1,4 @@
-import type { ElementRecord, MitigationRecord, ThreatRecord } from '@specter/core';
+import type { ElementRecord, MitigationRecord, ThreatRecord, ThreatUpdateInput } from '@specter/core';
 import { Fragment, useMemo, useState } from 'react';
 import { writeErrorMessage } from '../api/errors.js';
 import { useDeleteThreat, useUpdateThreat } from '../api/queries.js';
@@ -6,6 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog.js';
 import { ErrorSummary } from './ErrorSummary.js';
 import { MitigationList } from './MitigationList.js';
 import { describeStale } from './stale-text.js';
+import { StatusControl } from './StatusControl.js';
 import { ThreatForm } from './ThreatForm.js';
 
 interface ThreatTableProps {
@@ -14,17 +15,21 @@ interface ThreatTableProps {
   // Every mitigation of the threat model, from one request. They are grouped by threat here.
   mitigations: MitigationRecord[];
   elements: ElementRecord[];
+  // The Element column is left out where every row is for the same element (the diagram's panel).
+  showElement?: boolean;
+  // Called after a threat has been changed from its row and the list read again, so whoever filters the list can
+  // see whether the row still belongs in it.
+  onRowSaved?: (threatId: string) => void;
 }
 
 const COLUMNS = ['Title', 'Category', 'Likelihood', 'Impact', 'Risk', 'Status', 'Element', 'Source', 'Mitigations', 'Actions'];
 const COMES_BACK =
-  'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable instead.';
-const label = (value: string): string => value.replace('_', ' ');
+  'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable, with a reason, instead.';
 
 // The threats of a threat model. A threat model of 1,000 threats and 2,000 mitigations stays usable
 // without virtualization (SC-004): mitigations are grouped once, and rendered only for expanded rows.
 // All text is rendered as text, never as markup (spec FR-017).
-export function ThreatTable({ threatModelId, threats, mitigations, elements }: ThreatTableProps) {
+export function ThreatTable({ threatModelId, threats, mitigations, elements, showElement = true, onRowSaved }: ThreatTableProps) {
   const update = useUpdateThreat(threatModelId);
   const remove = useDeleteThreat(threatModelId);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -42,6 +47,10 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
     return groups;
   }, [mitigations]);
   const elementNames = useMemo(() => new Map(elements.map((element) => [element.id, element.name])), [elements]);
+
+  function expand(id: string): void {
+    setExpanded((previous) => new Set(previous).add(id));
+  }
 
   function toggle(id: string): void {
     setExpanded((previous) => {
@@ -63,6 +72,8 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
 
   if (threats.length === 0) return <p>No threats yet.</p>;
 
+  const columns = showElement ? COLUMNS : COLUMNS.filter((column) => column !== 'Element');
+
   const deletingCount = deleting ? (byThreat.get(deleting.id)?.length ?? 0) : 0;
 
   return (
@@ -71,7 +82,7 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
       <table>
         <thead>
           <tr>
-            {COLUMNS.map((column) => (
+            {columns.map((column) => (
               <th key={column} scope="col">
                 {column}
               </th>
@@ -99,8 +110,16 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
                   <td>{threat.likelihood}</td>
                   <td>{threat.impact}</td>
                   <td>{threat.risk}</td>
-                  <td>{label(threat.status)}</td>
-                  <td>{(threat.element_id && elementNames.get(threat.element_id)) || '—'}</td>
+                  <td>
+                    <StatusControl
+                      threat={threat}
+                      mitigations={own}
+                      threatModelId={threatModelId}
+                      onOpenMitigations={() => expand(threat.id)}
+                      onSaved={() => onRowSaved?.(threat.id)}
+                    />
+                  </td>
+                  {showElement && <td>{(threat.element_id && elementNames.get(threat.element_id)) || '—'}</td>}
                   <td>
                     {threat.origin === 'manual' ? (
                       'Manual'
@@ -130,13 +149,17 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
                 </tr>
                 {editingId === threat.id && (
                   <tr>
-                    <td colSpan={COLUMNS.length}>
+                    <td colSpan={columns.length}>
                       <ThreatForm
                         threatModelId={threatModelId}
                         initial={threat}
+                        mitigations={own}
+                        elements={elements}
                         onSubmit={async (input) => {
-                          await update.mutateAsync({ id: threat.id, input });
+                          // The edit form only ever builds an update (ThreatsSection casts the create side alike).
+                          await update.mutateAsync({ id: threat.id, input: input as ThreatUpdateInput });
                           setEditingId(null);
+                          onRowSaved?.(threat.id);
                         }}
                         onCancel={() => setEditingId(null)}
                       />
@@ -145,7 +168,7 @@ export function ThreatTable({ threatModelId, threats, mitigations, elements }: T
                 )}
                 {open && (
                   <tr id={panelId}>
-                    <td colSpan={COLUMNS.length}>
+                    <td colSpan={columns.length}>
                       {threat.description && <p>{threat.description}</p>}
                       <MitigationList threatId={threat.id} threatModelId={threatModelId} mitigations={own} />
                     </td>

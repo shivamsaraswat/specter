@@ -8,7 +8,7 @@ import { el, eid } from './test-helpers.js';
 const flow = (n: number, from: number, to: number, name = `Flow ${n}`) =>
   el(n, { type: 'data_flow', name, layout: null, source_element_id: eid(from), target_element_id: eid(to) });
 
-function renderEdge(props: { id: string; label: string; curve: number; from: [number, number]; to: [number, number] }) {
+function renderEdge(props: { id: string; label: string; curve: number; from: [number, number]; to: [number, number]; openThreats?: number }) {
   return render(
     <ReactFlowProvider>
       <svg>
@@ -25,7 +25,7 @@ function renderEdge(props: { id: string; label: string; curve: number; from: [nu
             targetPosition: Position.Left,
             markerEnd: 'url(#arrow)',
             label: props.label,
-            data: { curve: props.curve },
+            data: { curve: props.curve, openThreats: props.openThreats ?? 0 },
             selected: false,
             animated: false,
             interactionWidth: 20,
@@ -43,6 +43,17 @@ describe('FlowEdge (FR-004)', () => {
     const path = container.querySelector('path.react-flow__edge-path');
     expect(path?.getAttribute('marker-end')).toBe('url(#arrow)');
     expect(container.querySelector('text')?.textContent).toBe('HTTPS');
+  });
+
+  it('shows the open-threat count above its label, with a text alternative, only when above 0 (spec FR-015)', () => {
+    const { container } = renderEdge({ id: 'e1', label: 'HTTPS', curve: 0, from: [100, 50], to: [400, 50], openThreats: 2 });
+    expect(container.querySelector('.diagram-badge text')?.textContent).toBe('2');
+    expect(container.querySelector('.diagram-badge title')?.textContent).toBe('2 open threats');
+    // The flow's name is still the label, unchanged.
+    const labels = [...container.querySelectorAll('text')].filter((text) => text.closest('.diagram-badge') === null);
+    expect(labels.map((text) => text.textContent)).toEqual(['HTTPS']);
+    document.body.innerHTML = '';
+    expect(renderEdge({ id: 'e2', label: 'HTTPS', curve: 0, from: [100, 50], to: [400, 50] }).container.querySelector('.diagram-badge')).toBeNull();
   });
 
   it('draws a flow with a curve offset on a different path from a straight one', () => {

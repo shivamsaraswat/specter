@@ -10,12 +10,21 @@ import { TYPE_LABELS } from './type-labels.js';
 export interface DiagramNodeData extends Record<string, unknown> {
   label: string;
   element: ElementRecord;
+  // How many open threats are linked to the element: the work still to do on it (spec FR-015).
+  openThreats: number;
 }
 
 export interface FlowEdgeData extends Record<string, unknown> {
   // How far the line bows away from a straight one, in units, signed relative to its own direction.
   curve: number;
+  openThreats: number;
 }
+
+const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+
+// "3 open threats", the count in words: the badge's tooltip, and the end of an element's accessible name.
+export const openThreatsText = (count: number): string => `${count} open ${count === 1 ? 'threat' : 'threats'}`;
+const withCount = (name: string, count: number): string => (count > 0 ? `${name}, ${openThreatsText(count)}` : name);
 
 // How many boundaries enclose the element. React Flow needs a parent in the array before its
 // children, or it reports "Parent node not found" (research #13).
@@ -35,19 +44,22 @@ function depthOf(element: ElementRecord, byId: ReadonlyMap<string, ElementRecord
 export function toFlowNodes(
   elements: readonly ElementRecord[],
   resolved: ReadonlyMap<string, Resolved> = resolveLayout(elements),
+  counts: ReadonlyMap<string, number> = NO_COUNTS,
 ): Node<DiagramNodeData>[] {
   const byId = new Map(elements.map((element) => [element.id, element]));
   return elements
     .filter((element) => element.type !== 'data_flow')
     .map((element) => {
       const at = resolved.get(element.id) ?? { x: 0, y: 0 };
+      const openThreats = counts.get(element.id) ?? 0;
       const node: Node<DiagramNodeData> = {
         id: element.id,
         type: element.type,
         position: { x: at.x, y: at.y },
-        data: { label: element.name, element },
-        // What a screen reader says for the node: what it is and what it is called, never its id.
-        ariaLabel: `${TYPE_LABELS[element.type]} ${element.name}`,
+        data: { label: element.name, element, openThreats },
+        // What a screen reader says for the node: what it is and what it is called, never its id, and how many
+        // open threats it has (spec FR-017).
+        ariaLabel: withCount(`${TYPE_LABELS[element.type]} ${element.name}`, openThreats),
         // A boundary is moved by its label alone, so that the space inside it stays free for what it holds.
         ...(element.type === 'trust_boundary' ? { dragHandle: '.diagram-boundary__label' } : {}),
         ...(element.parent_boundary_id !== null && byId.get(element.parent_boundary_id)?.type === 'trust_boundary'
@@ -85,6 +97,7 @@ function facing(from: Rect, to: Rect): Side {
 export function toFlowEdges(
   elements: readonly ElementRecord[],
   resolved: ReadonlyMap<string, Resolved> = resolveLayout(elements),
+  counts: ReadonlyMap<string, number> = NO_COUNTS,
 ): Edge<FlowEdgeData>[] {
   const rects = absoluteRects(elements, resolved);
   const nameOf = new Map(elements.map((element) => [element.id, element.name]));
@@ -113,6 +126,7 @@ export function toFlowEdges(
     const from = rects.get(flow.source_element_id ?? '');
     const to = rects.get(flow.target_element_id ?? '');
     const side = from && to ? facing(from, to) : 'right';
+    const openThreats = counts.get(flow.id) ?? 0;
     return {
       id: flow.id,
       type: 'flow',
@@ -121,9 +135,12 @@ export function toFlowEdges(
       sourceHandle: side,
       targetHandle: OPPOSITE[side],
       label: flow.name,
-      ariaLabel: `${TYPE_LABELS.data_flow} ${flow.name}, from ${nameOf.get(flow.source_element_id ?? '') ?? '?'} to ${nameOf.get(flow.target_element_id ?? '') ?? '?'}`,
+      ariaLabel: withCount(
+        `${TYPE_LABELS.data_flow} ${flow.name}, from ${nameOf.get(flow.source_element_id ?? '') ?? '?'} to ${nameOf.get(flow.target_element_id ?? '') ?? '?'}`,
+        openThreats,
+      ),
       markerEnd: { type: MarkerType.ArrowClosed },
-      data: { curve: canonical ? spread : -spread },
+      data: { curve: canonical ? spread : -spread, openThreats },
     };
   });
 }
@@ -157,6 +174,7 @@ export function sameNode(current: Node<DiagramNodeData>, next: Node<DiagramNodeD
     current.parentId === next.parentId &&
     current.style?.width === next.style?.width &&
     current.style?.height === next.style?.height &&
+    current.data.openThreats === next.data.openThreats &&
     current.ariaLabel === next.ariaLabel
   );
 }
@@ -169,6 +187,7 @@ export function sameEdge(current: Edge<FlowEdgeData>, next: Edge<FlowEdgeData>):
     current.sourceHandle === next.sourceHandle &&
     current.targetHandle === next.targetHandle &&
     current.data?.curve === next.data?.curve &&
+    current.data?.openThreats === next.data?.openThreats &&
     current.ariaLabel === next.ariaLabel
   );
 }

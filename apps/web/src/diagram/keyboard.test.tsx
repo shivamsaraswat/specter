@@ -146,6 +146,13 @@ describe('describeSelection (FR-026)', () => {
     expect(describeSelection(all, [eid(13)])).toBe('Data flow Query, from API to DB');
   });
 
+  it('adds the open-threat count, only when above 0 (FR-017)', () => {
+    const counts = new Map([[eid(11), 3], [eid(13), 1]]);
+    expect(describeSelection(all, [eid(11)], counts)).toBe('Process API, in VPC, 3 open threats');
+    expect(describeSelection(all, [eid(13)], counts)).toBe('Data flow Query, from API to DB, 1 open threat');
+    expect(describeSelection(all, [eid(12)], counts)).toBe('Data store DB, in no trust boundary');
+  });
+
   it('says nothing for no selection, several, or an element that is gone', () => {
     expect(describeSelection(all, [])).toBe('');
     expect(describeSelection(all, [eid(11), eid(12)])).toBe('');

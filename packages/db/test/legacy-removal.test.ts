@@ -92,8 +92,9 @@ async function unrelatedSnapshot(p: pg.Pool, ids: string[]): Promise<unknown[]> 
   return [
     ...(await jsonRows(p, 'SELECT to_jsonb(t) AS j FROM projects t WHERE id = $1', [project])),
     ...(await jsonRows(p, 'SELECT to_jsonb(t) AS j FROM threat_models t WHERE id = $1', [model])),
-    // `- 'stale'`: migration 014 adds that column to every threat; this test is about 010's removal only.
-    ...(await jsonRows(p, `SELECT to_jsonb(t) - 'stale' AS j FROM threats t WHERE id = $1`, [threat])),
+    // `- 'stale' - 'status_reason'`: migrations 014 and 015 add those columns to every threat; this test is
+    // about 010's removal only.
+    ...(await jsonRows(p, `SELECT to_jsonb(t) - 'stale' - 'status_reason' AS j FROM threats t WHERE id = $1`, [threat])),
     ...(await jsonRows(p, 'SELECT to_jsonb(t) AS j FROM mitigations t WHERE id = $1', [mitigation])),
   ];
 }

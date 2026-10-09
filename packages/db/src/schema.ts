@@ -77,6 +77,9 @@ interface ThreatsTable {
   library_ref: string | null;
   // Why a rule-generated threat no longer fits the diagram; NULL when current. Only the rule engine writes it.
   stale: ColumnType<StaleReason | null, StaleReason | null | undefined, StaleReason | null>;
+  // Why the threat was accepted or marked not applicable; NULL for any other status, and for decisions made
+  // before Phase 2 Milestone 4. The API sets and clears it with the status.
+  status_reason: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }

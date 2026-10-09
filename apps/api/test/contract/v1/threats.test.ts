@@ -37,6 +37,7 @@ describe('/api/v1/threats (FR-001, FR-009, FR-010, FR-010a)', () => {
       status: 'open',
       origin: 'manual',
       library_ref: null,
+      status_reason: null,
       description: '',
     });
   });
@@ -58,12 +59,24 @@ describe('/api/v1/threats (FR-001, FR-009, FR-010, FR-010a)', () => {
     expect(ThreatRecord.parse(res.body).risk).toBe(deriveRisk(likelihood, impact));
   });
 
-  it('moves between statuses in any direction (FR-010a)', async () => {
+  // Phase 1 accepted any status at any time (M5 FR-010a); the lifecycle of Phase 2 M4 keeps every direction open
+  // and puts a condition on the target (spec FR-002): a reason for accepted and not applicable, an implemented or
+  // verified mitigation for mitigated. threat-lifecycle.test.ts covers each rule.
+  it('moves through every status, in any direction, when the target\'s conditions are met (FR-002)', async () => {
     const threat = (await c.post<ApiRecord>('/threats', threatBody())).body;
-    for (const status of ['accepted', 'open', 'not_applicable', 'mitigated', 'open']) {
-      const res = await c.patch(`/threats/${threat.id}`, { status });
+    await c.post('/mitigations', { threat_id: threat.id, description: 'Rotate keys', status: 'implemented' });
+    const steps: [Record<string, unknown>, string, string | null][] = [
+      [{ status: 'accepted', status_reason: 'Accepted for now' }, 'accepted', 'Accepted for now'],
+      [{ status: 'open' }, 'open', null],
+      [{ status: 'not_applicable', status_reason: 'Out of scope' }, 'not_applicable', 'Out of scope'],
+      [{ status: 'mitigated' }, 'mitigated', null],
+      [{ status: 'accepted', status_reason: 'Accepted after all' }, 'accepted', 'Accepted after all'],
+      [{ status: 'open' }, 'open', null],
+    ];
+    for (const [change, status, reason] of steps) {
+      const res = await c.patch(`/threats/${threat.id}`, change);
       expect(res.status).toBe(200);
-      expect(ThreatRecord.parse(res.body).status).toBe(status);
+      expect(ThreatRecord.parse(res.body)).toMatchObject({ status, status_reason: reason });
     }
   });
 

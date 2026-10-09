@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   STRIDE_CATEGORIES,
+  ThreatCreateFields,
   ThreatCreateInput,
   ThreatInputBase,
   ThreatRecord,
+  ThreatUpdateFields,
   ThreatUpdateInput,
 } from '../src/index.js';
 
@@ -27,6 +29,7 @@ describe('ThreatCreateInput', () => {
       description: '',
       status: 'open',
       library_ref: null,
+      status_reason: null,
     });
   });
 
@@ -90,8 +93,40 @@ describe('ThreatUpdateInput', () => {
     expect(ThreatUpdateInput.safeParse({ threat_model_id: model }).success).toBe(false);
   });
 
+  // A reason is cleared by moving the threat to open or mitigated, never by sending null (data-model.md §2).
+  it('accepts a status_reason, trimmed, and refuses null, a blank one and one over 10,000 characters', () => {
+    expect(ThreatUpdateInput.parse({ status_reason: '  Covered by the WAF  ' })).toEqual({ status_reason: 'Covered by the WAF' });
+    expect(ThreatUpdateInput.safeParse({ status_reason: null }).success).toBe(false);
+    expect(ThreatUpdateInput.safeParse({ status_reason: '   ' }).success).toBe(false);
+    expect(ThreatUpdateInput.safeParse({ status_reason: '😀'.repeat(10_000) }).success).toBe(true);
+    expect(ThreatUpdateInput.safeParse({ status_reason: '😀'.repeat(10_001) }).success).toBe(false);
+  });
+
   it('does not accept origin: provenance is fixed when a threat is created', () => {
     expect(ThreatUpdateInput.safeParse({ origin: 'manual' }).success).toBe(false);
+  });
+});
+
+describe('ThreatCreateInput status_reason', () => {
+  it('defaults to null and accepts a trimmed reason of up to 10,000 characters', () => {
+    // A reason only goes with accepted and not applicable (lifecycle.test.ts has the placement rules).
+    const accepted = { ...valid, status: 'accepted' };
+    expect(ThreatCreateInput.parse(valid).status_reason).toBeNull();
+    expect(ThreatCreateInput.parse({ ...accepted, status_reason: '  why  ' }).status_reason).toBe('why');
+    expect(ThreatCreateInput.safeParse({ ...accepted, status_reason: '😀'.repeat(10_000) }).success).toBe(true);
+    expect(ThreatCreateInput.safeParse({ ...accepted, status_reason: '😀'.repeat(10_001) }).success).toBe(false);
+    expect(ThreatCreateInput.safeParse({ ...accepted, status_reason: '   ' }).success).toBe(false);
+  });
+});
+
+// zod 4.6 throws on .omit() and .partial() of an object that carries a refinement (research #2), so core
+// exports the unrefined field objects for callers that derive their own schema.
+describe('ThreatCreateFields and ThreatUpdateFields', () => {
+  it('can be extended and omitted from', () => {
+    expect(() => ThreatCreateFields.extend({ origin: ThreatCreateFields.shape.origin })).not.toThrow();
+    expect(() => ThreatCreateFields.omit({ origin: true })).not.toThrow();
+    expect(() => ThreatUpdateFields.omit({ title: true })).not.toThrow();
+    expect(() => ThreatUpdateFields.partial()).not.toThrow();
   });
 });
 
@@ -105,6 +140,7 @@ describe('ThreatRecord', () => {
     status: 'open',
     library_ref: null,
     stale: null,
+    status_reason: null,
     created_at: '2026-10-04T10:00:00.000Z',
     updated_at: '2026-10-04T10:00:00.000Z',
   };
@@ -116,6 +152,12 @@ describe('ThreatRecord', () => {
   it('accepts a 90,000-character title and description in a stored record: the record sets no maximum (M3 FR-031)', () => {
     const long = ThreatRecord.parse({ ...row, title: 'T'.repeat(90_000), description: 'D'.repeat(90_000) });
     expect(long.title).toHaveLength(90_000);
+  });
+
+  it('requires status_reason, null or text (Phase 2 M4)', () => {
+    expect(ThreatRecord.safeParse({ ...row, status_reason: undefined }).success).toBe(false);
+    expect(ThreatRecord.safeParse({ ...row, status: 'accepted', status_reason: 'Covered by the WAF' }).success).toBe(true);
+    expect(ThreatRecord.safeParse({ ...row, status_reason: 5 }).success).toBe(false);
   });
 
   it('requires stale, null or a stale reason', () => {
