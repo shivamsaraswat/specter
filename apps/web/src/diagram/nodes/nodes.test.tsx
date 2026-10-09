@@ -8,12 +8,12 @@ import { nodeTypes } from './node-types.js';
 
 // FR-004, FR-027: each node type is drawn in its own shape, with its name shown as text.
 
-function renderNode(element: ReturnType<typeof el>) {
+function renderNode(element: ReturnType<typeof el>, openThreats = 0) {
   const node: Node<DiagramNodeData> = {
     id: element.id,
     type: element.type,
     position: { x: 0, y: 0 },
-    data: { label: element.name, element },
+    data: { label: element.name, element, openThreats },
   };
   return render(
     <ReactFlowProvider>
@@ -39,6 +39,21 @@ describe('the node types', () => {
     const { container } = renderNode(el(1, { type: 'process' }));
     const sides = [...container.querySelectorAll('.react-flow__handle')].map((handle) => handle.getAttribute('data-handleid')).sort();
     expect(sides).toEqual(['bottom', 'left', 'right', 'top']);
+  });
+
+  // The accessible name is on the node itself (flow.ts); the badge repeats it for the eye (spec FR-015, FR-017).
+  it('shows the open-threat count as a badge with its text alternative, only when above 0', () => {
+    const { container } = renderNode(el(1, { type: 'process', name: 'API' }), 2);
+    const badge = container.querySelector('.diagram-badge');
+    expect(badge?.textContent).toBe('2');
+    expect(badge?.getAttribute('title')).toBe('2 open threats');
+    document.body.innerHTML = '';
+    expect(renderNode(el(1, { type: 'process', name: 'API' }), 0).container.querySelector('.diagram-badge')).toBeNull();
+  });
+
+  it('says "1 open threat" in the singular', () => {
+    const { container } = renderNode(el(1, { type: 'data_store', name: 'DB' }), 1);
+    expect(container.querySelector('.diagram-badge')?.getAttribute('title')).toBe('1 open threat');
   });
 
   it('shows markup in a name literally and renders none of it (FR-027)', () => {

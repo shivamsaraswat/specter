@@ -1,33 +1,32 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.7.0 → 1.8.0
-Rationale: Phase 2 Milestone 3 (the rule engine, specs/phase-2/milestone-3-rule-engine/) adds an entry point to
-  /api/v1, POST /api/v1/threat-models/{id}/threats/generate, which runs the shipped threat library against a
-  threat model's diagram and writes the threats and mitigations it proposes, and it is the first server-side
-  writer of `origin = 'rule'`. It adds a column (`threats.stale`) that only that writer sets, and it makes a
-  rule-generated threat's element and rule permanent in the database. Principle V requires the Threat Model
-  section to be updated for a new entry point in the same change. This is a MINOR: it adds to the Threat Model
-  section's entry points and mitigations, as Phase 1 Milestones 5 and 6 and Phase 2 Milestone 1 did, and adds or
-  changes no principle.
+Version change: 1.8.0 → 1.9.0
+Rationale: Phase 2 Milestone 4 (the threat workflow, specs/phase-2/milestone-4-threat-workflow/) puts rules on how a
+  threat's status changes and records why a risk was accepted or a threat dismissed. It adds a column
+  (`threats.status_reason`) and a database rule for where it may be (`threats_status_reason_check`), and it makes
+  `PATCH /api/v1/threats/{id}` and `POST /api/v1/threats` refuse some status changes: a reason is required with
+  `accepted` and `not_applicable`, and a threat moves to `mitigated` only when one of its mitigations is implemented
+  or verified, checked under row locks. It adds no entry point, asset or trust boundary, and widens nothing: any
+  signed-in account could already set any status. Principle V requires the Threat Model section to be kept current
+  for a change to route validation logic. This is a MINOR: it adds to the Threat Model section's mitigations and
+  records a new accepted risk, as earlier milestones did, and adds or changes no principle.
 Modified principles: none (Principle V's rule is applied, not changed)
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Trust boundaries (current): the generate endpoint is named among the /api/v1 entry points; it is in the same
-    trust tier as the single-record threat endpoints.
-  - Tampering: Mitigated (Phase 2 Milestone 3): a rule-generated threat is written only by the rule engine; its
-    element and rule cannot change (`threats_rule_link_immutable`), there is at most one per element and rule
-    (`threats_rule_key`), and `stale` sits outside every client schema. The earlier line "Only server-side writers
-    may record those, and none exist before Phase 2" is replaced.
-  - Repudiation: Partially mitigated (Phase 2 Milestone 3): a generation run writes one stdout line with the
-    account, the threat model and the counts.
-  - Denial of Service: Partially mitigated (Phase 2 Milestone 3): one run is bounded by the 1,000-element limit and
-    the shipped library, and holds the threat model's lock while it runs, so element writes to that model queue
-    behind it.
-  - Elevation of Privilege: no widening. Any authenticated account could already create threats and mitigations by
-    hand; generation creates only what the shipped, reviewed rules describe.
+  - Tampering: Mitigated (Phase 2 Milestone 4): the rules for changing a threat's status are enforced by the server
+    for every client; the move into `mitigated` is checked in the same transaction as the change, with the threat
+    and the mitigation it relies on locked, so a concurrent change to that mitigation cannot slip past it; and a
+    reason can sit only on `accepted` and `not_applicable` threats (`threats_status_reason_check`).
+  - Repudiation: Accepted risk (Phase 2 Milestone 4): accepting a risk or dismissing a threat is now a recorded decision
+    with a reason, but nothing records who made it or when. The write log names the account and the threat, never
+    the new status or the reason, and no history is kept. Closed by Phase 6's audit log.
+  - Information Disclosure: Mitigated (Phase 2 Milestone 4): a status reason is user text, bounded at 10,000
+    characters, shown as text and never logged.
+  - Elevation of Privilege: no widening. Any authenticated account could already set any status; the milestone only
+    adds conditions to doing so.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -280,6 +279,16 @@ webhooks.
   (`threats_rule_link`), and `stale`, the marker that a generated threat no longer fits the diagram, is set
   only by the engine, only on generated threats (`threats_stale_rule_only`), and is outside every client
   schema. A run is one transaction under the threat model's lock, so a failure leaves nothing half-written.
+  *Mitigated (Phase 2 Milestone 4)*: the rules for changing a threat's status hold for every client, because the
+  server enforces them (`apps/api/src/v1/threats.ts`, with the shared schemas in `packages/core`): a reason is
+  required with `accepted` and `not_applicable` and refused with the other statuses, and a new threat cannot be
+  `mitigated`. A move into `mitigated` needs an implemented or verified mitigation. It is checked in the same
+  transaction as the change, with the threat (`FOR NO KEY UPDATE`) and the mitigation it relies on (`FOR SHARE`)
+  locked, so a mitigation downgraded or deleted at the same moment either fails the change or comes after it; the
+  database cannot hold this rule itself, because a mitigated threat that later lost its implemented mitigation is a
+  legal state. A reason can sit only on an `accepted` or `not_applicable` threat, whoever writes
+  (`threats_status_reason_check`), and is at most 10,000 characters. Generating threats never changes
+  a threat's status or reason.
   Milestone 4's legacy-link protection is retired with the
   links: Milestone 5 removed the imported data, the link table and the legacy entry table.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
@@ -295,7 +304,11 @@ webhooks.
   ids and an event name only, never a username, password, credential, token or client address.
   *Partially mitigated (Phase 2 Milestone 3)*: every generation run writes one stdout line with the
   account id, the threat model id and the counts of what it created and flagged, never a name or a threat's
-  text; the threats and mitigations it creates get no line each.
+  text; the threats and mitigations it creates get no line each. *Accepted risk (Phase 2 Milestone 4)*: accepting a
+  risk or dismissing a threat is now a decision recorded with a reason, but not with who made it or when. The write
+  log names the account and the threat, never the new status or the reason, and no history of earlier statuses is
+  kept, so a later change overwrites the decision. Any signed-in account can make it (there are no roles until
+  Phase 6). Phase 6's audit log closes this.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
   server-side only (`apps/api/src/app.ts` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
@@ -314,7 +327,9 @@ webhooks.
   `persist-credentials: false`. *Mitigated (Phase 1 Milestone 5)*:
   `/api/v1` errors are fixed messages that never echo a submitted or stored value or the database
   driver's message and detail, and the write log carries ids only. Deleting the legacy data also
-  removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint.
+  removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint. *Mitigated
+  (Phase 2 Milestone 4)*: a status reason is user text, like a threat's description. The web app draws it as text, the
+  API's refusals of it are fixed messages that never repeat it, and no log line holds it or the status it explains.
 - **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
   specs/phase-1/milestone-5-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
@@ -354,6 +369,9 @@ webhooks.
   threat endpoints. Any authenticated account could already create threats and mitigations by hand; generation
   creates only what the shipped, reviewed rules describe, and it gives a client less power over a generated
   threat than over a manual one (its element and rule cannot be changed).
+  *No widening (Phase 2 Milestone 4)*: any authenticated account could already set any status on any threat. The
+  lifecycle rules only add conditions to that, and the web app's new ways to link a manual threat to an element
+  use an ability the API already had. Who may accept a risk is still every signed-in account, until Phase 6's roles.
 
 Any change that adds an endpoint, a new external integration, or a new credential type MUST add
 or update a bullet above in the same PR, whether or not the surrounding phase has been reached.
@@ -394,4 +412,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.8.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-08
+**Version**: 1.9.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-09

@@ -42,6 +42,7 @@ export function fakeEditor(overrides: Partial<DiagramEditor> = {}): DiagramEdito
     apply: vi.fn(),
     retry: vi.fn(),
     whenSettled: vi.fn(() => Promise.resolve('saved' as const)),
+    openThreats: new Map(),
     selectedIds: [],
     select: vi.fn(),
     focusNameFor: null,

@@ -1,5 +1,7 @@
 export * from './enums.js';
 export * from './risk.js';
+export * from './lifecycle.js';
+export * from './threat-summary.js';
 export * from './errors.js';
 export {
   NAME_MAX_LENGTH,

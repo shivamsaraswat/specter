@@ -29,6 +29,14 @@ describe('ElementsList', () => {
     expect(names).toEqual(['Trust boundary: VPC', 'Process: API', 'External entity: Customer', 'Data store: DB', 'Data flow: Query']);
   });
 
+  // The count is part of the button's name, so a keyboard or screen-reader user gets it with the element (FR-017).
+  it('adds an element\'s open-threat count to its button, only when above 0', () => {
+    renderWithEditor(<ElementsList />, fakeEditor({ elements, openThreats: new Map([[eid(1), 3], [eid(3), 1]]) }));
+    expect(screen.getByRole('button', { name: 'Process: API · 3 open' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Data store: DB · 1 open' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'External entity: Customer' })).toBeTruthy();
+  });
+
   it('says so when there is nothing yet', () => {
     renderWithEditor(<ElementsList />, fakeEditor({ elements: [] }));
     expect(screen.getByText('No elements yet')).toBeTruthy();

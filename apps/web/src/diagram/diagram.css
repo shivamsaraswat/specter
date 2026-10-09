@@ -273,3 +273,55 @@
   color: #9b1c1c;
   font-weight: 600;
 }
+
+/* The open-threat count on an element (spec FR-015). The number is text in a bordered pill, so it does not rely
+   on colour alone, and the element's accessible name carries the same count (FR-017). */
+span.diagram-badge {
+  box-sizing: border-box;
+  min-width: 20px;
+  padding: 0 5px;
+  border: 2px solid #9b1c1c;
+  border-radius: 999px;
+  background: #fff;
+  color: #9b1c1c;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.diagram-node span.diagram-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+}
+
+.diagram-boundary__frame span.diagram-badge {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: top;
+}
+
+.diagram-badge--edge rect {
+  fill: #fff;
+  stroke: #9b1c1c;
+  stroke-width: 2;
+}
+
+.diagram-badge--edge text {
+  fill: #9b1c1c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* The selected element's threats, a full-width row below the canvas. */
+.element-threats {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #c9ced6;
+}
+
+.element-threats h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}

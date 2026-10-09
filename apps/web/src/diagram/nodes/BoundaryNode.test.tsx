@@ -9,14 +9,14 @@ import { nodeTypes } from './node-types.js';
 
 // FR-004, FR-008: a trust boundary is a dashed, labelled container that can be resized.
 
-function renderBoundary(selected: boolean, name = 'Production VPC') {
+function renderBoundary(selected: boolean, name = 'Production VPC', openThreats = 0) {
   const element = el(1, { type: 'trust_boundary', name, layout: { x: 0, y: 0, width: 320, height: 220 } });
   const node: Node<DiagramNodeData> = {
     id: element.id,
     type: 'trust_boundary',
     position: { x: 0, y: 0 },
     selected,
-    data: { label: name, element },
+    data: { label: name, element, openThreats },
     style: { width: 320, height: 220 },
   };
   return render(
@@ -41,6 +41,15 @@ describe('the trust boundary node', () => {
     const { container } = renderBoundary(false, '<b>bold</b>');
     expect(screen.getByText('<b>bold</b>')).toBeTruthy();
     expect(container.querySelector('b')).toBeNull();
+  });
+
+  it('shows its own open-threat count beside its label, only when above 0 (spec FR-014, FR-015)', () => {
+    const { container } = renderBoundary(false, 'Production VPC', 2);
+    const badge = container.querySelector('.diagram-badge');
+    expect(badge?.textContent).toBe('2');
+    expect(badge?.getAttribute('title')).toBe('2 open threats');
+    document.body.innerHTML = '';
+    expect(renderBoundary(false).container.querySelector('.diagram-badge')).toBeNull();
   });
 
   it('shows resize handles when selected, and none when not', () => {

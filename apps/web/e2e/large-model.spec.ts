@@ -65,7 +65,10 @@ test('opens a threat model of 1,000 threats and 2,000 mitigations within 3 secon
 
     const started = Date.now();
     await page.goto(`/threat-models/${model.id}`);
-    await expect(page.locator('tbody tr')).toHaveCount(THREATS, { timeout: 30_000 });
+    // The list shows its first 100 rows and says how many there are; the rest are a page away (Phase 2 M4).
+    await expect(page.locator('tbody tr')).toHaveCount(100, { timeout: 30_000 });
+    await expect(page.getByText(`Showing ${THREATS} of ${THREATS} threats`)).toBeVisible();
+    await expect(page.getByText(`Page 1 of ${THREATS / 100}`)).toBeVisible();
     // Responsive: expanding a row shows its two mitigations.
     await page.getByRole('button', { name: '2 mitigations' }).first().click();
     await expect(page.locator('tbody tr[id^="mitigations-"] li')).toHaveCount(2);

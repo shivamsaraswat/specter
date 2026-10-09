@@ -110,6 +110,31 @@ describe('ThreatTable', () => {
     expect(within(modelLevel).getByText('Low', { selector: 'td' })).toBeTruthy();
   });
 
+  describe('the status control (FR-008)', () => {
+    it('puts a status control, named for its threat, in each row', () => {
+      setup([threat({ status: 'accepted', status_reason: 'Covered' }), threat({ id: THREAT_ID_2, title: 'Other' })]);
+      const first = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Status of Session token theft' });
+      const second = screen.getByRole<HTMLSelectElement>('combobox', { name: 'Status of Other' });
+      expect([first.value, second.value]).toEqual(['accepted', 'open']);
+    });
+
+    it('shows the reason as text under the status, and marks a decision with no reason', () => {
+      setup([
+        threat({ status: 'not_applicable', status_reason: 'Out of scope' }),
+        threat({ id: THREAT_ID_2, title: 'Older decision', status: 'accepted', status_reason: null }),
+      ]);
+      const reasoned = screen.getByText('Session token theft').closest('tr') as HTMLElement;
+      expect(within(reasoned).getByText('Out of scope')).toBeTruthy();
+      const older = screen.getByText('Older decision').closest('tr') as HTMLElement;
+      expect(within(older).getByText('Needs a reason')).toBeTruthy();
+    });
+
+    it('passes the row’s own mitigations to the control', () => {
+      setup([threat({ status: 'mitigated' })], [mitigation({ status: 'implemented' })]);
+      expect(screen.queryByText('No implemented mitigation')).toBeNull();
+    });
+  });
+
   it('counts each threat’s mitigations from the one grouped list', () => {
     setup(
       [threat(), threat({ id: THREAT_ID_2, title: 'Other' })],
@@ -164,7 +189,7 @@ describe('ThreatTable', () => {
     });
 
     const COMES_BACK =
-      'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable instead.';
+      'Generating threats again will create it again while its rule applies. To dismiss it for good, set its status to Not applicable, with a reason, instead.';
 
     it('warns that a generated threat comes back, and points to Not applicable (FR-016a)', async () => {
       installFakeApi({});

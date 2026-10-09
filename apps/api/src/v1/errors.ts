@@ -61,6 +61,9 @@ const BROKEN_RULES: Record<string, string> = {
   // A generated threat keeps its element and rule for good: moving it would make the next run create a
   // duplicate, and editing its rule id could fake provenance. Unchanged values are not a change.
   threats_rule_link_immutable: 'A rule-generated threat stays linked to its element and rule',
+  // A reason belongs to accepted and not_applicable only. The refinement in core catches a reason sent with the
+  // wrong status in the same request; this catches one sent alone to a threat whose stored status takes none.
+  threats_status_reason_check: 'status_reason can only be set on a threat that is accepted or not_applicable',
   elements_limit: 'A threat model can hold at most 1,000 elements',
 };
 

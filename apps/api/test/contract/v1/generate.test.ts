@@ -93,6 +93,7 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
         origin: 'rule',
         status: 'open',
         stale: null,
+        status_reason: null,
         category: candidate?.category,
         title: candidate?.title,
         description: candidate?.description,
@@ -211,7 +212,7 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
       if (!target) throw new Error('no threat generated');
       const own = (await mitigationsOf(d.modelId)).filter((m) => m.threat_id === target.id);
       expect(own.length).toBeGreaterThan(1);
-      await c.patch(`/threats/${target.id}`, { title: 'My own title', description: 'My notes', likelihood: 'Low', impact: 'Low', status: 'accepted' });
+      await c.patch(`/threats/${target.id}`, { title: 'My own title', description: 'My notes', likelihood: 'Low', impact: 'Low', status: 'accepted', status_reason: 'Mine to decide' });
       await c.del(`/mitigations/${own[0]?.id}`);
       await c.post('/mitigations', { threat_id: target.id, description: 'Added by hand' });
       const before = await mitigationsOf(d.modelId);
@@ -219,7 +220,7 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
       const again = await c.post<{ created: number }>(GENERATE(d.modelId), {});
       expect(again.body.created).toBe(0);
       const after = (await c.get<ApiRecord>(`/threats/${target.id}`)).body;
-      expect(after).toMatchObject({ title: 'My own title', description: 'My notes', likelihood: 'Low', impact: 'Low', status: 'accepted', stale: null });
+      expect(after).toMatchObject({ title: 'My own title', description: 'My notes', likelihood: 'Low', impact: 'Low', status: 'accepted', status_reason: 'Mine to decide', stale: null });
       expect(await mitigationsOf(d.modelId)).toEqual(before);
     });
 
@@ -240,10 +241,13 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
       await c.post(GENERATE(d.modelId), {});
       const [target] = await threatsOf(d.modelId);
       if (!target) throw new Error('no threat generated');
-      await c.patch(`/threats/${target.id}`, { status: 'not_applicable' });
+      await c.patch(`/threats/${target.id}`, { status: 'not_applicable', status_reason: 'Handled by the platform team' });
       const again = await c.post(GENERATE(d.modelId), {});
       expect(again.body).toMatchObject({ created: 0 });
-      expect((await c.get<ApiRecord>(`/threats/${target.id}`)).body).toMatchObject({ status: 'not_applicable' });
+      expect((await c.get<ApiRecord>(`/threats/${target.id}`)).body).toMatchObject({
+        status: 'not_applicable',
+        status_reason: 'Handled by the platform team',
+      });
     });
 
     it('creates only the new element’s threats when an element was added', async () => {
@@ -295,7 +299,7 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
       const plaintext = before.filter((t) => t.library_ref?.includes('plaintext'));
       expect(plaintext.length).toBeGreaterThan(0);
       // The user marks one of them accepted: a stale threat keeps its status.
-      await c.patch(`/threats/${plaintext[0]?.id}`, { status: 'accepted' });
+      await c.patch(`/threats/${plaintext[0]?.id}`, { status: 'accepted', status_reason: 'Plaintext is fine on this link' });
       const mitigationsBefore = (await c.get<ApiRecord[]>(`/threat-models/${d.modelId}/mitigations`)).body;
 
       expect((await setFlow(d.writes.id, { encrypted_in_transit: true })).status).toBe(200);
@@ -416,6 +420,9 @@ describe('POST /api/v1/threat-models/{id}/threats/generate (US1)', () => {
 
     it('accepts the values it already has, and every other edit', async () => {
       const { target } = await generated();
+      // Mitigated needs an implemented mitigation (spec FR-003); the rule's suggested ones are proposed.
+      const [suggested] = (await c.get<ApiRecord[]>(`/threats/${target.id}/mitigations`)).body;
+      expect((await c.patch(`/mitigations/${suggested?.id}`, { status: 'implemented' })).status).toBe(200);
       const res = await c.patch(`/threats/${target.id}`, { library_ref: target.library_ref, element_id: target.element_id, title: 'Renamed by hand', status: 'mitigated' });
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ title: 'Renamed by hand', status: 'mitigated', origin: 'rule' });

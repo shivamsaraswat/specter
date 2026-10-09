@@ -28,6 +28,8 @@ function fakeServer(initial: ElementRecord[]) {
   const server = { elements: initial, batches: [] as BatchOp[][], respond: [] as (() => Response | Promise<Response>)[] };
   const api = installFakeApi({
     [`GET /api/v1/threat-models/${MODEL}/elements`]: () => json(200, server.elements),
+    // The editor reads the threats too, for the open-threat counts (Phase 2 M4).
+    [`GET /api/v1/threat-models/${MODEL}/threats`]: () => json(200, []),
     [`POST /api/v1/threat-models/${MODEL}/elements/batch`]: ({ body }) => {
       const ops = (body as { operations: BatchOp[] }).operations;
       const next = server.respond.shift();
@@ -247,5 +249,32 @@ describe('undo after a failed save', () => {
     ]);
     expect(server.elements[0]?.name).toBe('API');
     expect(names()).toBe('API');
+  });
+});
+
+// Phase 2 / Milestone 4, spec edge case "Undo after linking a threat": a threat added to an element makes undoing
+// that element's creation a delete of an element with a linked threat, which the server refuses.
+describe('undo after a threat was linked to a new element', () => {
+  it('is refused as any such delete is: the notice shows, the step is dropped, the threats are read again, and the element stays', async () => {
+    const { server, api } = fakeServer([api1]);
+    mount();
+    await waitFor(() => expect(names()).toBe('API'));
+
+    const cache = eid(50);
+    act(() => editor.apply({ label: 'Add Cache', ops: [{ op: 'create', element: { id: cache, type: 'process', name: 'Cache', layout: { x: 300, y: 50 } } }] }));
+    await saved();
+    expect(names()).toBe('API,Cache');
+    const readsBefore = api.callsTo('GET', `/api/v1/threat-models/${MODEL}/threats`).length;
+
+    server.respond.push(() =>
+      json(409, { error: 'This element still has threats, or data flows that would be deleted with it have threats; delete those threats first' }),
+    );
+    act(() => editor.undo());
+    await waitFor(() => expect(editor.notice).toContain('That change was not saved: This element still has threats'));
+    await saved();
+
+    expect([editor.undoLabel, editor.redoLabel]).toEqual([null, null]);
+    expect(names()).toBe('API,Cache');
+    await waitFor(() => expect(api.callsTo('GET', `/api/v1/threat-models/${MODEL}/threats`).length).toBeGreaterThan(readsBefore));
   });
 });

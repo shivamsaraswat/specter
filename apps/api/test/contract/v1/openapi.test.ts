@@ -193,6 +193,29 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       expect(text).toContain('rule_unknown');
     });
 
+    // The generated schema cannot show a conditional rule, so the rules are in the descriptions (research #2).
+    it('documents the threat lifecycle: status_reason on the record, and the rules and the 409 on the operations (Phase 2 M4)', () => {
+      const document = doc();
+      expect(document.components.schemas.ThreatRecord?.properties?.status_reason).toBeDefined();
+      expect(document.components.schemas.ThreatCreateInput?.properties?.status_reason).toBeDefined();
+      expect(document.components.schemas.ThreatUpdateInput?.properties?.status_reason).toBeDefined();
+
+      const create = document.paths['/api/v1/threats']?.post;
+      expect(create?.description).toContain('status_reason is required when status is accepted or not_applicable');
+      expect(create?.description).toContain('created as mitigated');
+
+      const update = document.paths['/api/v1/threats/{id}']?.patch;
+      expect(Object.keys(update?.responses ?? {})).toEqual(expect.arrayContaining(['200', '400', '404', '409']));
+      expect(update?.description).toContain('implemented or verified (409 otherwise)');
+      expect(update?.description).toContain('status_reason');
+    });
+
+    it('leaves the statuses of mitigations and threat models free: no 409 on their updates', () => {
+      const document = doc();
+      expect(Object.keys(document.paths['/api/v1/mitigations/{id}']?.patch?.responses ?? {})).not.toContain('409');
+      expect(document.paths['/api/v1/mitigations/{id}']?.patch?.description).toContain('Any status can be set at any time');
+    });
+
     it('states the coordinate frame of layout and the vocabulary of properties', () => {
       const text = JSON.stringify(doc().components.schemas.ElementCreateInput);
       expect(text).toContain('relative to the parent boundary');

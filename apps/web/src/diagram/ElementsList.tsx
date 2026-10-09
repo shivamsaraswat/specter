@@ -7,9 +7,10 @@ const groupOf = (element: ElementRecord): number => GROUP[element.type as keyof 
 
 // Every element of the diagram as a plain list, for getting to any of them without a pointer (spec FR-025).
 // Choosing one selects it and moves focus to it on the canvas, where the arrow keys then move it. Boundaries
-// come first, then the nodes, then the flows, each group by name.
+// come first, then the nodes, then the flows, each group by name. An element with open threats says how many in its
+// button, so a keyboard or screen-reader user gets the count with the element (spec FR-017).
 export function ElementsList() {
-  const { elements = [], selectedIds, select } = useDiagramEditor();
+  const { elements = [], selectedIds, select, openThreats } = useDiagramEditor();
   const sorted = [...elements].sort((a, b) => groupOf(a) - groupOf(b) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   function choose(id: string): void {
@@ -29,6 +30,7 @@ export function ElementsList() {
             <li key={element.id}>
               <button type="button" aria-current={selectedIds.includes(element.id) ? 'true' : undefined} onClick={() => choose(element.id)}>
                 {TYPE_LABELS[element.type]}: {element.name}
+                {(openThreats.get(element.id) ?? 0) > 0 && ` · ${openThreats.get(element.id)} open`}
               </button>
             </li>
           ))}

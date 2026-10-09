@@ -1,7 +1,7 @@
-import { MAX_BATCH_OPERATIONS, type ElementRecord } from '@specter/core';
+import { MAX_BATCH_OPERATIONS, openThreatCounts, type ElementRecord } from '@specter/core';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { keys, useBatchElements, useElements } from '../api/queries.js';
+import { keys, useBatchElements, useElements, useThreats } from '../api/queries.js';
 import { useSession } from '../session/SessionProvider.js';
 import { DiagramHistory, type HistoryStep } from './history.js';
 import { applyActions, inverseOf, type BatchOp, type DiagramAction } from './operations.js';
@@ -30,6 +30,10 @@ export interface DiagramEditor {
   retry: () => void;
   // Resolves when every change the user made has been saved, or the save has stopped (generate waits on it).
   whenSettled: () => Promise<SaveStatus>;
+  // The open threats of each element, by element id (spec FR-015): what the canvas, the elements list and the
+  // selection announcement say about it. Derived from the threats the page holds, so every saved change to a
+  // threat reaches it without a reload (FR-016).
+  openThreats: ReadonlyMap<string, number>;
   // The ids selected on the canvas, nodes and flows alike. The properties panel shows the one selected.
   selectedIds: readonly string[];
   select: (ids: readonly string[]) => void;
@@ -63,6 +67,8 @@ export function useDiagramEditor(): DiagramEditor {
 export function DiagramEditorProvider({ threatModelId, children }: { threatModelId: string; children: ReactNode }) {
   const query = useElements(threatModelId);
   const batch = useBatchElements(threatModelId);
+  const threats = useThreats(threatModelId);
+  const openThreats = useMemo(() => openThreatCounts(threats.data ?? []), [threats.data]);
   // The queue is made once for this threat model and always sends through the current mutation.
   const [queue] = useState(() => new SaveQueue((ops) => batch.mutateAsync(ops)));
   useEffect(() => queue.setSend((ops) => batch.mutateAsync(ops)), [queue, batch]);
@@ -183,6 +189,7 @@ export function DiagramEditorProvider({ threatModelId, children }: { threatModel
       apply,
       retry: () => queue.retry(),
       whenSettled: () => queue.whenSettled(),
+      openThreats,
       selectedIds,
       select,
       focusNameFor,
@@ -198,7 +205,7 @@ export function DiagramEditorProvider({ threatModelId, children }: { threatModel
       undo,
       redo,
     }),
-    [threatModelId, elements, query, snapshot, queue, selectedIds, select, focusNameFor, clearNameFocus, notice, deleteRequest, clearDeleteRequest, apply, historySnapshot, undo, redo],
+    [threatModelId, elements, query, snapshot, queue, openThreats, selectedIds, select, focusNameFor, clearNameFocus, notice, deleteRequest, clearDeleteRequest, apply, historySnapshot, undo, redo],
   );
   return <DiagramEditorContext.Provider value={value}>{children}</DiagramEditorContext.Provider>;
 }

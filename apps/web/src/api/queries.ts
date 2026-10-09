@@ -18,11 +18,14 @@ import {
   type ThreatUpdateInput,
 } from '@specter/core';
 import { apiDelete, apiGet, apiPatch, apiPost } from './client.js';
-import { isGone } from './errors.js';
+import { ApiError, isGone } from './errors.js';
 
-// One query per v1 read, and one mutation per write (research #15). A write refetches what it
-// changed only after the server has confirmed it: nothing here is optimistic (spec FR-016). A write
-// that finds its record gone (404) refetches too, so the screen shows the server's state.
+// One query per v1 read, and one mutation per write (research #15). Nothing here is optimistic (spec FR-016):
+// a write changes what the page shows only after the server has confirmed it. A write to a project or a threat
+// model refetches what it changed. A write to a threat or a mitigation puts the record the server answered with
+// into the list the page holds, because those lists run to 15,000 threats and 49,000 mitigations, and reading
+// one again after every change made working through them slow (Phase 2 M4, research #10). A write that finds its
+// record gone (404) refetches, so the screen shows the server's state.
 
 export const keys = {
   projects: ['projects'] as const,
@@ -33,6 +36,18 @@ export const keys = {
   threats: (threatModelId: string) => ['threats', threatModelId] as const,
   mitigations: (threatModelId: string) => ['mitigations', threatModelId] as const,
 };
+
+// Changes a list the page holds, with what the server answered. A list that was never loaded is left alone. A read
+// of the list that is already on its way may have started before this write and land after it; it is followed by
+// another, so the newest state wins and the write cannot be undone by an older answer.
+function writeList<T extends { id: string }>(client: QueryClient, queryKey: readonly unknown[], change: (list: T[]) => T[]): void {
+  client.setQueryData<T[]>(queryKey, (current) => (current === undefined ? undefined : change(current)));
+  if (client.isFetching({ queryKey }) > 0) void client.invalidateQueries({ queryKey });
+}
+
+const append = <T,>(record: T) => (list: T[]): T[] => [...list, record];
+const replaceById = <T extends { id: string }>(record: T) => (list: T[]): T[] => list.map((item) => (item.id === record.id ? record : item));
+const removeById = <T extends { id: string }>(id: string) => (list: T[]): T[] => list.filter((item) => item.id !== id);
 
 // Runs the given invalidations when a write fails because the record no longer exists.
 function refetchWhenGone(client: QueryClient, invalidate: () => Promise<unknown>) {
@@ -184,7 +199,7 @@ export function useCreateThreat(threatModelId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: ThreatCreateInput) => apiPost('/api/v1/threats', ThreatRecord, input),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) }),
+    onSuccess: (created) => writeList(client, keys.threats(threatModelId), append(created)),
   });
 }
 
@@ -194,14 +209,19 @@ export function useUpdateThreat(threatModelId: string) {
   const refresh = () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) });
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ThreatUpdateInput }) => apiPatch(`/api/v1/threats/${id}`, ThreatRecord, input),
-    onSuccess: refresh,
-    onError: refetchWhenGone(client, refresh),
+    onSuccess: (updated) => writeList(client, keys.threats(threatModelId), replaceById(updated)),
+    onError: (err) => {
+      refetchWhenGone(client, refresh)(err);
+      // A refused move to mitigated means the mitigations the page held were out of date: read them again, so the
+      // row shows why (contracts/web-ui.md §1).
+      if (err instanceof ApiError && err.status === 409) void client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
+    },
   });
 }
 
 export function useDeleteThreat(threatModelId: string) {
   const client = useQueryClient();
-  // A threat's mitigations go with it, so both lists are refetched.
+  // A threat's mitigations go with it, so both lists are refetched when the threat was already gone.
   const refresh = () =>
     Promise.all([
       client.invalidateQueries({ queryKey: keys.threats(threatModelId) }),
@@ -209,7 +229,10 @@ export function useDeleteThreat(threatModelId: string) {
     ]);
   return useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/threats/${id}`),
-    onSuccess: refresh,
+    onSuccess: (_result, id) => {
+      writeList<ThreatRecord>(client, keys.threats(threatModelId), removeById(id));
+      writeList<MitigationRecord>(client, keys.mitigations(threatModelId), (list) => list.filter((mitigation) => mitigation.threat_id !== id));
+    },
     onError: refetchWhenGone(client, refresh),
   });
 }
@@ -225,10 +248,9 @@ export function useModelMitigations(threatModelId: string) {
 
 export function useCreateMitigation(threatModelId: string) {
   const client = useQueryClient();
-  const refresh = () => client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
   return useMutation({
     mutationFn: (input: MitigationCreateInput) => apiPost('/api/v1/mitigations', MitigationRecord, input),
-    onSuccess: refresh,
+    onSuccess: (created) => writeList(client, keys.mitigations(threatModelId), append(created)),
     onError: refetchWhenGone(client, () => client.invalidateQueries({ queryKey: keys.threats(threatModelId) })),
   });
 }
@@ -239,7 +261,7 @@ export function useUpdateMitigation(threatModelId: string) {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: MitigationUpdateInput }) =>
       apiPatch(`/api/v1/mitigations/${id}`, MitigationRecord, input),
-    onSuccess: refresh,
+    onSuccess: (updated) => writeList(client, keys.mitigations(threatModelId), replaceById(updated)),
     onError: refetchWhenGone(client, refresh),
   });
 }
@@ -249,7 +271,7 @@ export function useDeleteMitigation(threatModelId: string) {
   const refresh = () => client.invalidateQueries({ queryKey: keys.mitigations(threatModelId) });
   return useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/mitigations/${id}`),
-    onSuccess: refresh,
+    onSuccess: (_result, id) => writeList<MitigationRecord>(client, keys.mitigations(threatModelId), removeById(id)),
     onError: refetchWhenGone(client, refresh),
   });
 }

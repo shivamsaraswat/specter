@@ -1420,7 +1420,7 @@
       "post": {
         "operationId": "createThreat",
         "summary": "Create a threat for a threat model, or for one of its elements",
-        "description": "origin is required and must be \"manual\". Risk is derived from likelihood and impact.",
+        "description": "origin is required and must be \"manual\". Risk is derived from likelihood and impact. A threat can't be created as mitigated. status_reason is required when status is accepted or not_applicable, and must be left out otherwise.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1566,7 +1566,7 @@
       "patch": {
         "operationId": "updateThreat",
         "summary": "Update the fields sent; the others stay as they are",
-        "description": "Any status can be set at any time, in any direction. origin cannot be changed. library_ref and element_id cannot change on a threat whose origin is rule.",
+        "description": "origin cannot be changed; library_ref and element_id cannot change on a threat whose origin is rule. A threat can be moved to mitigated only when at least one of its mitigations is implemented or verified (409 otherwise). status_reason is required whenever status is set to accepted or not_applicable, must be left out when status is set to open or mitigated (which clears it), and can be sent alone only to a threat that is accepted or not_applicable.",
         "parameters": [
           {
             "name": "id",
@@ -1621,6 +1621,16 @@
           },
           "404": {
             "description": "No such record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with existing records",
             "content": {
               "application/json": {
                 "schema": {
@@ -2813,6 +2823,19 @@
                 "type": "null"
               }
             ]
+          },
+          "status_reason": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2896,6 +2919,11 @@
                 "type": "null"
               }
             ]
+          },
+          "status_reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
           }
         },
         "additionalProperties": false
@@ -3482,6 +3510,12 @@
               }
             ]
           },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -3505,6 +3539,7 @@
           "origin",
           "library_ref",
           "stale",
+          "status_reason",
           "created_at",
           "updated_at"
         ],
