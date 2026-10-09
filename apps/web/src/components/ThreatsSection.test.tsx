@@ -51,10 +51,10 @@ function serve(initial: Record<string, unknown>[], elements: unknown[] = [elemen
   return { api, state };
 }
 
-function show(query = '') {
+function show(query = '', pageSize?: number) {
   return renderWithClient(
     <MemoryRouter initialEntries={[`/threat-models/${MODEL_ID}${query}`]}>
-      <ThreatsSection threatModelId={MODEL_ID} />
+      <ThreatsSection threatModelId={MODEL_ID} pageSize={pageSize} />
       <LocationProbe />
     </MemoryRouter>,
   );
@@ -192,34 +192,44 @@ describe('a filter on an element (FR-022)', () => {
   });
 });
 
-describe('pages of 100 (research #9)', () => {
+// The pages are 100 rows in the app, and the browser tests at the bound check that. Here the page is 10, so the
+// paging logic is tested with a few dozen threats instead of drawing 200 rows in jsdom, which is slow on a shared runner.
+describe('pages (research #9)', () => {
+  const PAGE = 10;
   const many = (n: number) => Array.from({ length: n }, (_, i) => made(i + 1, { risk: 'Low' }));
 
-  it('shows 100 rows, "Page 1 of 3", and the next hundred on Next', async () => {
-    serve(many(250));
-    show();
+  it('shows a page of rows, "Page 1 of 3", and the next page on Next', async () => {
+    serve(many(25));
+    show('', PAGE);
     expect(await screen.findByText('Page 1 of 3')).toBeTruthy();
-    expect(titles()).toHaveLength(100);
+    expect(titles()).toHaveLength(PAGE);
     expect(titles()[0]).toBe('T1');
-    expect(screen.getByText('Showing 250 of 250 threats')).toBeTruthy();
+    expect(screen.getByText('Showing 25 of 25 threats')).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('Page 2 of 3')).toBeTruthy();
-    expect(titles()[0]).toBe('T101');
+    expect(titles()[0]).toBe('T11');
     await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
     expect(titles()[0]).toBe('T1');
   });
 
-  it('shows no pager for a single page', async () => {
-    serve(many(100));
+  it('shows 100 rows to a page by default', async () => {
+    serve(many(101));
     show();
+    expect(await screen.findByText('Page 1 of 2')).toBeTruthy();
+    expect(titles()).toHaveLength(100);
+  });
+
+  it('shows no pager for a single page', async () => {
+    serve(many(PAGE));
+    show('', PAGE);
     await screen.findByText('T1');
     expect(screen.queryByRole('navigation', { name: 'Threat pages' })).toBeNull();
   });
 
   it('goes back to page 1 when a filter changes', async () => {
-    serve(many(250));
-    show();
+    serve(many(25));
+    show('', PAGE);
     await screen.findByText('Page 1 of 3');
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('Page 2 of 3')).toBeTruthy();
@@ -231,18 +241,18 @@ describe('pages of 100 (research #9)', () => {
   });
 
   it('moves to the last page that still exists when edits shrink the list', async () => {
-    serve(many(201));
-    show();
+    serve(many(21));
+    show('', PAGE);
     await screen.findByText('Page 1 of 3');
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(titles()).toEqual(['T201']);
+    expect(titles()).toEqual(['T21']);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete threat T201' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete threat T21' }));
     await userEvent.click(within(document.querySelector('dialog') as HTMLElement).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('Page 2 of 2')).toBeTruthy();
-    expect(titles()[0]).toBe('T101');
+    expect(titles()[0]).toBe('T11');
   });
 });
 
@@ -319,8 +329,8 @@ describe('a row that leaves the view (contracts/web-ui.md §1)', () => {
   });
 
   it('forgets the message when the page changes', async () => {
-    serve(Array.from({ length: 201 }, (_, i) => made(i + 1)));
-    show('?status=open');
+    serve(Array.from({ length: 25 }, (_, i) => made(i + 1)));
+    show('?status=open', 10);
     await screen.findByText('Page 1 of 3');
     await accept('T1');
     await waitFor(() => expect(message()).not.toBeNull());

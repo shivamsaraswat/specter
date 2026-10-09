@@ -22,7 +22,8 @@ const ELEMENT_GONE = 'The element in this filter no longer exists, so the filter
 // The page reads the elements (for their names and the filter), the threats, and every mitigation of the model in
 // one list each, however many threats the model holds (spec FR-010, M5 FR-002). The filters are the page's
 // address, so a filtered list survives a reload and can be shared as a link (FR-019).
-export function ThreatsSection({ threatModelId }: { threatModelId: string }) {
+// `pageSize` is for tests, which check the paging with a handful of rows instead of drawing 200 in jsdom.
+export function ThreatsSection({ threatModelId, pageSize = PAGE_SIZE }: { threatModelId: string; pageSize?: number }) {
   const elements = useElements(threatModelId);
   const threats = useThreats(threatModelId);
   const mitigations = useModelMitigations(threatModelId);
@@ -53,10 +54,10 @@ export function ThreatsSection({ threatModelId }: { threatModelId: string }) {
 
   const all = threats.data;
   const filtered = useMemo(() => (all ? applyThreatFilter(all, filter) : []), [all, filter]);
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   // Edits can shrink the list under the page the user is on: the last page that still exists is shown.
   const page = Math.min(chosen.key === filterKey ? chosen.page : 1, pages);
-  const rows = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+  const rows = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page, pageSize]);
 
   // flushSync: the controls show the filter, and the filter is the address. Without it a checkbox the user just
   // clicked would show its old state until the navigation, which React Router runs as a transition, had finished.
