@@ -68,7 +68,9 @@ describe('linking a manual threat to an element', () => {
     await c.post(`/threat-models/${modelId}/threats/generate`, {});
     const generated = ThreatRecord.array().parse((await c.get(`/threat-models/${modelId}/threats`)).body).find((t) => t.origin === 'rule');
     expect(generated).toBeDefined();
-    const res = await c.patch(`/threats/${generated?.id}`, { element_id: b.id });
+    // Moved to an element it is not on: writing the value it already has is not a change, and is allowed.
+    const elsewhere = generated?.element_id === b.id ? a.id : b.id;
+    const res = await c.patch(`/threats/${generated?.id}`, { element_id: elsewhere });
     expect(res).toEqual({ status: 400, body: { error: 'A rule-generated threat stays linked to its element and rule' } });
   });
 
