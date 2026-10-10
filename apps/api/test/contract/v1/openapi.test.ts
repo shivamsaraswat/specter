@@ -26,6 +26,9 @@ const OPERATION_IDS = [
   'listThreatModelThreats',
   'listThreatModelMitigations',
   'getThreatModelReport',
+  'exportThreatModel',
+  'checkImport',
+  'importThreatModel',
   'createElement',
   'getElement',
   'updateElement',
@@ -50,7 +53,7 @@ interface OperationObject {
   description?: string;
   parameters?: { name: string; in: string; required: boolean; schema: Record<string, unknown> }[];
   requestBody?: unknown;
-  responses: Record<string, { content?: Record<string, { schema: unknown }> }>;
+  responses: Record<string, { description?: string; content?: Record<string, { schema: unknown }> }>;
 }
 
 // Only what these tests read. The document is compared as plain JSON, as a client would receive it.
@@ -122,7 +125,9 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       // A default or an example is data, and {} is a legitimate value for one.
       const pointer = '/' + path.join('/');
       // ThreatGenerationInput is deliberately the empty object (it takes no options), so its `properties` is {}.
-      const intended = pointer === '/components/schemas/ThreatGenerationInput/properties';
+      // The `file` of an import is deliberately any JSON object: it is bounded and then parsed by the format's own schema
+      // (research #6), so what its members may hold is {}.
+      const intended = pointer === '/components/schemas/ThreatGenerationInput/properties' || pointer === '/components/schemas/ImportInput/properties/file/additionalProperties';
       if (isEmptyObject && !intended && !path.includes('default') && !path.includes('example')) empty.push(pointer);
     });
     expect(empty).toEqual([]);
@@ -143,7 +148,7 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       for (const { path } of operationsOf(doc())) expect(path.startsWith('/api/v1/'), path).toBe(true);
     });
 
-    it('describes exactly the 30 operations of the contract', () => {
+    it('describes exactly the 33 operations of the contract', () => {
       const ids = operationsOf(doc()).map(({ op }) => op.operationId);
       expect(ids.sort()).toEqual([...OPERATION_IDS].sort());
     });
@@ -190,10 +195,51 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       expect(op?.description).toContain('attachment');
     });
 
+    it('documents exportThreatModel with its format parameter, its JSON attachment and its errors (contracts/exchange-api.md)', () => {
+      const op = doc().paths['/api/v1/threat-models/{id}/export']?.get;
+      expect(op?.operationId).toBe('exportThreatModel');
+      expect(op?.requestBody).toBeUndefined();
+      expect(op?.parameters?.map((p) => [p.name, p.in, p.required])).toEqual([
+        ['id', 'path', true],
+        ['format', 'query', true],
+      ]);
+      expect(op?.parameters?.[1]?.schema).toMatchObject({ type: 'string', enum: ['specter', 'otm'] });
+      expect(Object.keys(op?.responses ?? {}).sort()).toEqual(['200', '400', '401', '404', '500']);
+      expect(op?.responses['200']?.content).toEqual({ 'application/json': { schema: { type: 'string' } } });
+      expect(op?.description).toContain('attachment');
+    });
+
+    it('documents checkImport and importThreatModel with their body, their limit and their errors (contracts/exchange-api.md)', () => {
+      const document = doc();
+      const check = document.paths['/api/v1/projects/{id}/imports/check']?.post;
+      const run = document.paths['/api/v1/projects/{id}/imports']?.post;
+      expect(check?.operationId).toBe('checkImport');
+      expect(run?.operationId).toBe('importThreatModel');
+      expect(Object.keys(check?.responses ?? {}).sort()).toEqual(['200', '400', '401', '404', '413', '415', '500']);
+      expect(Object.keys(run?.responses ?? {}).sort()).toEqual(['201', '400', '401', '404', '409', '413', '415', '500']);
+      expect(document.components.schemas.ImportInput).toBeDefined();
+      expect(document.components.schemas.ImportSummary).toBeDefined();
+      expect(document.components.schemas.ImportResult).toBeDefined();
+      expect(run?.description).toContain('all or nothing');
+      expect(check?.description).toContain('creates nothing');
+    });
+
+    it('states the size limit of every request body as x-max-body-bytes, and in its 413 (research #2)', () => {
+      for (const { op } of operationsOf(doc())) {
+        if (!op.requestBody) continue;
+        const isImport = op.operationId === 'checkImport' || op.operationId === 'importThreatModel';
+        const limit = (op.requestBody as Record<string, unknown>)['x-max-body-bytes'];
+        expect(limit, op.operationId).toBe(isImport ? 67_108_864 : 102_400);
+        expect((op.responses['413'] as { description?: string }).description, op.operationId).toBe(
+          isImport ? 'The body is over 64 MiB' : 'The body is over 100 KiB',
+        );
+      }
+    });
+
     it('documents a query parameter on no other operation', () => {
       for (const { op } of operationsOf(doc())) {
         const inQuery = (op.parameters ?? []).filter((p) => p.in === 'query');
-        if (op.operationId !== 'getThreatModelReport') expect(inQuery, op.operationId).toEqual([]);
+        if (op.operationId !== 'getThreatModelReport' && op.operationId !== 'exportThreatModel') expect(inQuery, op.operationId).toEqual([]);
       }
     });
 

@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import {
   ElementBatchResult,
   ElementRecord,
+  ImportResult,
   MitigationRecord,
   ProjectRecord,
   ThreatGenerationResult,
   ThreatModelRecord,
   ThreatRecord,
   type ElementBatchOperationInput,
+  type ImportInput,
   type MitigationCreateInput,
   type MitigationUpdateInput,
   type ProjectCreateInput,
@@ -120,6 +122,16 @@ export function useCreateThreatModel(projectId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: ThreatModelCreateInput) => apiPost('/api/v1/threat-models', ThreatModelRecord, input),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.threatModels(projectId) }),
+  });
+}
+
+// Imports a file as new threat models of the project (spec FR-006). The list of the project's threat models is stale
+// once it succeeds.
+export function useImportThreatModels(projectId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ImportInput) => apiPost(`/api/v1/projects/${projectId}/imports`, ImportResult, input),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.threatModels(projectId) }),
   });
 }

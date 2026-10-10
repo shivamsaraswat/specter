@@ -163,12 +163,12 @@ If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can
 | POST | `/api/login` | no | `{username, password}` → `{token}` (for API clients). Failed attempts are throttled: `429` |
 | POST | `/api/session` and `/api/session/{refresh,logout,logout-all}` | cookie | The browser's sign-in and session. Used by the web app, not meant for scripts. See [API.md](API.md) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
-| | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list, generating threats from a diagram, and downloading a report of a threat model as Markdown or HTML (29 operations) |
+| | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list, generating threats from a diagram, downloading a report of a threat model as Markdown or HTML, and exporting a threat model as a Specter or OTM file and importing a Specter, OTM or Threat Dragon file (32 operations) |
 | GET | `/api/v1/openapi.json` | Bearer | The OpenAPI 3.1 document for v1 |
 
 The v1 request bodies are validated, ids are UUIDs, and lists come oldest first. The original `/api/threats` endpoints are gone.
 
-Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for every operation, the fields, curl examples and error codes, and [`apps/api/openapi.json`](apps/api/openapi.json) for the OpenAPI document.
+Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for every operation, the fields, curl examples and error codes, and [`apps/api/openapi.json`](apps/api/openapi.json) for the OpenAPI document. The file formats Specter exports and imports (its own lossless file, [Open Threat Model](https://github.com/iriusrisk/OpenThreatModel) and OWASP Threat Dragon) are described in [`docs/formats/`](docs/formats/), with the Specter file's JSON Schema.
 
 ## Deployment
 
@@ -177,6 +177,7 @@ Send the token as `Authorization: Bearer <token>`. See [API.md](API.md) for ever
 - Point the load balancer health check at `/health`.
 - The compose defaults for `JWT_SECRET` and passwords are for local use only — set real values in any deployed environment.
 - The app reads its secrets from AWS Secrets Manager when configured to (see `apps/api/src/config.ts`).
+- **Memory:** give the host at least **2 GiB** if it will hold large threat models. Exporting or importing the largest one Specter allows (1,000 elements, about 15,000 threats) takes the API about 500 to 650 MB while it runs, on top of about 110 MB at rest, and two at once about 700 MB. A 1 GiB host (such as a `t3.micro`) is fine for ordinary use, but it is not promised to survive several large exports or imports at the same time. Lowering the 64 MiB import limit would not help: memory follows the number of records.
 
 A reference deployment (ALB → private EC2 → RDS, Secrets Manager, CloudWatch) has been run against this app on AWS; a generic public write-up isn't published yet.
 

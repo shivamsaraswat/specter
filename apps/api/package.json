@@ -13,6 +13,7 @@
     "test": "vitest run",
     "migrate": "tsx --conditions=@specter/source src/migrate.ts",
     "openapi": "tsx --conditions=@specter/source src/v1/openapi.ts",
+    "formats": "tsx --conditions=@specter/source src/exchange/schema.ts",
     "start": "node dist/server.js"
   },
   "engines": {
@@ -35,6 +36,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.23.1",
+    "ajv": "^8.20.0",
     "micromark": "^4.0.3",
     "micromark-extension-gfm": "^3.0.0"
   }

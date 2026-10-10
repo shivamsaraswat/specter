@@ -4,7 +4,7 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../../src/app.js';
 import db from '../../src/db.js';
-import { readSnapshot, withSnapshot } from '../../src/report/snapshot.js';
+import { readSnapshot, withSnapshot } from '../../src/snapshot.js';
 import { login, startTestServer, type TestServer } from '../contract/helpers.js';
 import { client, seedChain, type Chain, type V1Client } from '../contract/v1/helpers.js';
 

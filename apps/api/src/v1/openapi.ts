@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { jsonValue, toJsonSchemaOverride } from '@specter/core';
 import { z } from 'zod';
-import { defineOperation, type Operation } from './operation.js';
+import { DEFAULT_BODY_LIMIT, defineOperation, type Operation } from './operation.js';
 import { resourceOperations } from './operations.js';
 
 // Builds the OpenAPI 3.1 document from the same operation table the router mounts, so the two
@@ -23,7 +23,6 @@ const STATUS_DESCRIPTIONS: Record<number, string> = {
   401: 'There is no valid token',
   404: 'No such record',
   409: 'The request conflicts with existing records',
-  413: 'The body is over 100 kb',
   415: 'The content encoding is not supported',
   500: 'An unexpected failure',
 };
@@ -74,8 +73,13 @@ function componentSchemas(): Record<string, JsonObject> {
   return schemas;
 }
 
+// A limit as a person reads it: 102400 bytes is 100 KiB, and 67108864 is 64 MiB.
+function limitText(bytes: number): string {
+  return bytes % (1024 * 1024) === 0 ? `${bytes / (1024 * 1024)} MiB` : `${bytes / 1024} KiB`;
+}
+
 function documentedResponse(op: Operation<unknown>, status: number): JsonObject {
-  const description = STATUS_DESCRIPTIONS[status] ?? 'An error';
+  const description = status === 413 ? `The body is over ${limitText(op.bodyLimit ?? DEFAULT_BODY_LIMIT)}` : (STATUS_DESCRIPTIONS[status] ?? 'An error');
   if (status !== op.status) return { description, content: { 'application/json': { schema: ref('Error') } } };
   if (status === 204) return { description };
   // A download is text, in one of the media types the operation lists.
@@ -124,7 +128,14 @@ function documentedOperation(op: Operation<unknown>): JsonObject {
     ...(parameters.length === 0 ? {} : { parameters }),
     ...(op.body === undefined
       ? {}
-      : { requestBody: { required: true, content: { 'application/json': { schema: ref(op.body.name) } } } }),
+      : {
+          requestBody: {
+            required: true,
+            // The most bytes the body may hold; it is read only after the request is authenticated (research #2).
+            'x-max-body-bytes': op.bodyLimit ?? DEFAULT_BODY_LIMIT,
+            content: { 'application/json': { schema: ref(op.body.name) } },
+          },
+        }),
     responses,
   };
 }

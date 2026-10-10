@@ -5,6 +5,21 @@ import { resourceOperations } from '../../../src/v1/operations.js';
 import { login, startTestServer, type TestServer } from '../helpers.js';
 import { client, seedChain, uniqueName, type ApiRecord, type Chain, type V1Client } from './helpers.js';
 
+// The smallest request an import operation accepts, so a test can see what comes after validation.
+const EMPTY_IMPORT = {
+  format: 'specter',
+  file: {
+    format: 'specter',
+    format_version: 1,
+    exported_at: '2026-10-10T00:00:00.000Z',
+    project: { name: 'P' },
+    threat_model: { name: 'M', methodology: 'STRIDE', status: 'draft' },
+    elements: [],
+    threats: [],
+    mitigations: [],
+  },
+};
+
 // Spec Story 2: every kind of mistake gets its contract status and message, and nothing is written.
 describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR-012)', () => {
   let server: TestServer;
@@ -89,7 +104,7 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
   }
 
   it('covers every resource operation', () => {
-    expect(resourceOperations).toHaveLength(29);
+    expect(resourceOperations).toHaveLength(32);
   });
 
   describe('path ids', () => {
@@ -120,11 +135,14 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
       // The batch endpoint needs a valid body to get past validation; elements-batch.test.ts covers its 404.
       for (const op of resourceOperations.filter((o) => o.path.includes(':id') && o.operationId !== 'batchElements')) {
         const key = resourceOf(op.path);
-        // The report is asked for in a format; the id and the format are checked before the threat model is looked up.
-        const path = op.operationId === 'getThreatModelReport' ? `${withId(op.path, randomUUID())}?format=markdown` : withId(op.path, randomUUID());
+        // The report and the export are asked for in a format; the id and the format are checked before the threat model is looked up.
+        const formats: Record<string, string> = { getThreatModelReport: '?format=markdown', exportThreatModel: '?format=specter' };
+        const path = `${withId(op.path, randomUUID())}${formats[op.operationId] ?? ''}`;
+        // An import is checked, file included, before the project is looked up, so it needs a file that is valid.
+        const isImport = op.operationId === 'checkImport' || op.operationId === 'importThreatModel';
         const res = await c.raw(path, {
           method: op.method.toUpperCase(),
-          body: op.method === 'patch' ? JSON.stringify(resources[key].patch) : undefined,
+          body: op.method === 'patch' ? JSON.stringify(resources[key].patch) : isImport ? JSON.stringify(EMPTY_IMPORT) : undefined,
         });
         // A child list names its parent, which is the first path segment too.
         expect(res, op.operationId).toEqual({ status: 404, body: { error: `${resources[key].entity} not found` } });
@@ -288,5 +306,51 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ error: expect.any(String) as unknown });
     });
+  });
+});
+
+// Research #2: a v1 request is authenticated before its body is read, so a body is parsed, and sized, only for a
+// signed-in account. Without it, raising an operation's body limit would make the server read large bodies for anyone.
+describe('bodies are read after authentication (research #2)', () => {
+  let server: TestServer;
+  let token: string;
+
+  beforeAll(async () => {
+    server = await startTestServer(app);
+    token = await login(server.baseUrl);
+  });
+
+  afterAll(async () => {
+    await server.close();
+  });
+
+  const post = (path: string, body: string, bearer?: string) =>
+    fetch(`${server.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(bearer === undefined ? {} : { Authorization: `Bearer ${bearer}` }) },
+      body,
+    });
+
+  it('answers 401, not 400, to malformed JSON without a token', async () => {
+    const res = await post('/api/v1/projects', '{"name":');
+    expect(res.status).toBe(401);
+  });
+
+  it('answers 401, not 413, to a body over the limit without a token', async () => {
+    const res = await post('/api/v1/projects', JSON.stringify({ name: 'x'.repeat(200_000) }));
+    expect(res.status).toBe(401);
+  });
+
+  it('keeps the 400 and 413 answers for a signed-in account', async () => {
+    expect(await (await post('/api/v1/projects', '{"name":', token)).json()).toEqual({ error: 'Invalid JSON' });
+    const big = await post('/api/v1/projects', JSON.stringify({ name: 'x'.repeat(200_000) }), token);
+    expect(big.status).toBe(413);
+    expect(await big.json()).toEqual({ error: 'Payload too large' });
+  });
+
+  it('still reads the body of the routes outside /api/v1 first', async () => {
+    const res = await post('/api/login', '{not json');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Invalid JSON' });
   });
 });

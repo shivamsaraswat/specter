@@ -14,7 +14,7 @@ The web app at `/` uses the same v1 API. Scripts and other API clients use `POST
 | POST | `/api/login` | no | `{username, password}` → `{token}`. After repeated failures it answers `429` ([below](#sign-in-throttling)) |
 | POST | `/api/session`, `/api/session/refresh`, `/api/session/logout`, `/api/session/logout-all` | session cookie | The web app's sign-in and session, [below](#browser-sessions) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
-| | `/api/v1/…` | Bearer | The threat model API: 29 operations, listed [below](#v1-operations) |
+| | `/api/v1/…` | Bearer | The threat model API: 32 operations, listed [below](#v1-operations) |
 
 ## v1 operations
 
@@ -22,8 +22,8 @@ All paths below are under `/api/v1`. Ids are UUIDs.
 
 | Resource | Operations |
 | --- | --- |
-| Projects | `GET /projects`, `POST /projects`, `GET`/`PATCH`/`DELETE /projects/{id}`, `GET /projects/{id}/threat-models` |
-| Threat models | `POST /threat-models`, `GET`/`PATCH`/`DELETE /threat-models/{id}`, `GET /threat-models/{id}/elements`, `…/threats`, `…/mitigations`, `POST /threat-models/{id}/threats/generate` (`generateThreats`), `GET /threat-models/{id}/report` (`getThreatModelReport`) |
+| Projects | `GET /projects`, `POST /projects`, `GET`/`PATCH`/`DELETE /projects/{id}`, `GET /projects/{id}/threat-models`, `POST /projects/{id}/imports/check` (`checkImport`), `POST /projects/{id}/imports` (`importThreatModel`) |
+| Threat models | `POST /threat-models`, `GET`/`PATCH`/`DELETE /threat-models/{id}`, `GET /threat-models/{id}/elements`, `…/threats`, `…/mitigations`, `POST /threat-models/{id}/threats/generate` (`generateThreats`), `GET /threat-models/{id}/report` (`getThreatModelReport`), `GET /threat-models/{id}/export` (`exportThreatModel`) |
 | Elements | `POST /elements`, `GET`/`PATCH`/`DELETE /elements/{id}`, `POST /threat-models/{id}/elements/batch` (`batchElements`) |
 | Threats | `POST /threats`, `GET`/`PATCH`/`DELETE /threats/{id}`, `GET /threats/{id}/mitigations` |
 | Mitigations | `POST /mitigations`, `GET`/`PATCH`/`DELETE /mitigations/{id}` |
@@ -229,6 +229,35 @@ curl -s "${H[@]}" -OJ "localhost:3000/api/v1/threat-models/$MODEL/report?format=
 - The same unchanged threat model gives the same document each time, apart from the export time in its header, so a report kept in a repository shows what changed.
 - A report is read in one snapshot, so it never mixes two states of the threat model. It changes nothing, writes no log line, and holds no credential or account name. `404` if the threat model does not exist.
 
+### Exporting and importing a threat model
+
+`GET /threat-models/{id}/export?format=specter` and `…?format=otm` answer with the whole threat model as a data file, to back it up, move it to another install, commit it, or open it in another tool. `format` is required and is one of `specter` or `otm`; anything else, a repeated `format` or any other parameter is a `400` (`format must be specter or otm`).
+
+- **`specter`** is Specter's own file. It is **lossless**: importing it again gives the same diagram, the same threats in the same states, and the same mitigations. Its format and its published JSON Schema are in [docs/formats/specter-file.md](docs/formats/specter-file.md).
+- **`otm`** is [Open Threat Model](docs/formats/otm.md) 0.2.0. Other tools read its standard fields; Specter's own fields travel in `attributes.specter`, so Specter reads its own file back without loss.
+- The answer is an attachment (`Content-Disposition`), named after the threat model and the day in UTC, such as `payments-2026-10-10.specter.json`, with `Cache-Control: no-store`. It is read in one snapshot, changes nothing and writes no log line. The same unchanged threat model gives the same bytes, apart from the export time, so a file kept in a repository shows what changed. `404` if the threat model does not exist.
+
+`POST /projects/{id}/imports` creates **new** threat models in a project from a file, in any of three formats: `specter`, `otm` (OTM 0.2.0 in JSON) and `threat-dragon` (OWASP Threat Dragon version 2; see [docs/formats/threat-dragon.md](docs/formats/threat-dragon.md)). It never changes an existing threat model. `POST /projects/{id}/imports/check` takes the **same body**, runs everything the import runs except the writing, and creates nothing: use it to show what an import would do before you do it.
+
+```sh
+# Export, then check and import into another project.
+curl -s "${H[@]}" -o model.specter.json "localhost:3000/api/v1/threat-models/$MODEL/export?format=specter"
+jq -n --slurpfile f model.specter.json '{format:"specter", names:["Copy"], file:$f[0]}' > body.json
+curl -s "${H[@]}" -H 'Content-Type: application/json' --data-binary @body.json "localhost:3000/api/v1/projects/$PROJECT/imports/check"
+curl -s "${H[@]}" -H 'Content-Type: application/json' --data-binary @body.json "localhost:3000/api/v1/projects/$PROJECT/imports"
+```
+
+- **The body** is `{ "format", "names"?, "file" }`. `file` is the parsed file. `names` has one name per threat model the file creates, in file order (a Threat Dragon file creates one per diagram); without it each keeps the name its file gives it.
+- **The check answers `200`** with the summary: `{ "models": [{ "name", "name_issue", "status", "elements", "threats", "mitigations" }], "notes": [{ "path", "kind", "label"?, "detail"? }] }`. A name that is empty, over 200 characters, repeated in the file, or already used in the project is reported as `name_issue` (`empty`, `too_long`, `duplicate` or `taken`), not refused, so it can be fixed. `notes` lists everything in the file that was not carried over or was changed to fit, each with its place in the file (`path`) and what was done (`kind`). A Specter file imports with no notes.
+- **The import answers `201`** with `{ "threat_models": […], "summary": … }`, the same summary the check gave. It is all or nothing, in one transaction. A name with an issue is refused: `409` when it is already used in the project (`names.0: a threat model with this name already exists in this project`), `400` otherwise.
+- **A refusal is a `400`** that names the rule and the place in the file, never a value from it, such as `file.threats.12.status_reason: can only be set on a threat that is accepted or not_applicable` or `file.format_version: must be 1`. A file nested more than 64 levels or holding more than 2,000,000 values is refused before it is read further.
+- **The same rules as creating the records by hand apply**, with one exception: a threat keeps the status it carries, even `mitigated` with no implemented mitigation or `accepted` without a reason, and is then shown as missing what its status needs. Generated threats keep their rule and stale mark, so *Generate threats* creates no duplicate afterwards. A threat marked AI-drafted is refused, and every threat from an OTM file from another tool or from Threat Dragon is imported as manual.
+- **Size.** A body may hold up to **64 MiB**, which holds the largest threat model Specter allows (1,000 elements, about 15,000 threats and 49,000 mitigations) with room to spare; a larger one is a `413`. The check and the import of that model take under two seconds.
+
+### Order of checks
+
+Every `/api/v1` request is authenticated **before** its body is read, so a missing or bad token is a `401` whatever the body, and a body is parsed and sized only for a signed-in account: malformed JSON (`400`) and a body over the limit (`413`) come after. Each operation has its own limit: 100 KiB, and 64 MiB for the two import operations, stated in the OpenAPI document as `x-max-body-bytes`.
+
 ### Read, change and list
 
 ```sh
@@ -307,7 +336,13 @@ It names the account, the action, the record type and the record id, and never a
 {"event":"generate","account_id":1,"threat_model_id":"…","created":12,"existing":30,"newly_stale":2,"no_longer_stale":1,"skipped":0}
 ```
 
-Only the numbers are logged, never an element name or the skipped elements' ids. Reads and rejected requests are not logged this way. This is a trace for whoever runs the install, not an audit log: it isn't stored, and it isn't tamper-evident.
+Only the numbers are logged, never an element name or the skipped elements' ids. An [import](#exporting-and-importing-a-threat-model) does the same, with one line for the whole import:
+
+```json
+{"event":"import","account_id":1,"project_id":"…","threat_model_ids":["…"],"elements":1000,"threats":15000,"mitigations":49000,"notes":0}
+```
+
+It holds ids and counts only, never a name or any content of the file; a check and an export write no line. Reads and rejected requests are not logged this way. This is a trace for whoever runs the install, not an audit log: it isn't stored, and it isn't tamper-evident.
 
 Sign-ins and session events are logged the same way, one line each:
 
@@ -328,7 +363,7 @@ Errors are JSON: `{"error": "<message>"}`. A message never contains a value you 
 | 403 | `/api/session` was called without an `Origin` that matches the request's host |
 | 404 | No record with that id (the message names the record, for example `Project not found`), or a path the app doesn't serve (`Not found`) |
 | 409 | A name is already taken, an element still has threats, a threat is set to `mitigated` while none of its mitigations is implemented or verified, the username already exists, or an element `id` you supplied is already in use (`An element with this id already exists`) |
-| 413 | Request body larger than 100 KB |
+| 413 | Request body larger than its limit: 100 KiB, or 64 MiB for the two import operations |
 | 415 | A content encoding the server cannot read, or a `/api/session` body that isn't JSON |
 | 429 | Too many failed sign-ins (`Retry-After` says when to try again) |
 | 500 | Unexpected server error (details are in the app logs) |

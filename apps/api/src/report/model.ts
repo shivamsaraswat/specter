@@ -25,7 +25,7 @@ import {
   type ThreatSummary,
 } from '@specter/core';
 import { computeFlowContexts } from '../rule-engine/flow-context.js';
-import type { Snapshot } from './snapshot.js';
+import type { Snapshot } from '../snapshot.js';
 
 // The report model (data-model.md §2): everything a report says, worked out once, in the order it is said. Both
 // renderers draw only from this, so the Markdown and the HTML cannot differ (FR-002). The model holds the user's text

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import app from '../../../src/app.js';
 import db from '../../../src/db.js';
+import { logImport } from '../../../src/v1/write-log.js';
 import { login, startTestServer, type TestServer } from '../helpers.js';
 import {
   accountIdOf,
@@ -230,6 +231,20 @@ describe('the write log (FR-014a)', () => {
         const res = await c.post(`/threat-models/${randomUUID()}/threats/generate`, {});
         expect(res.status).toBe(404);
         expect(log.raw().filter((line) => line.includes('"event":"generate"'))).toEqual([]);
+      } finally {
+        log.restore();
+      }
+    });
+  });
+
+  describe('importing (FR-019)', () => {
+    it('writes one import line with ids and counts, in this key order, and nothing else', () => {
+      const log = captureWriteLog();
+      try {
+        logImport(7, 'project-id', ['model-a', 'model-b'], { elements: 3, threats: 4, mitigations: 5, notes: 6 });
+        expect(log.raw()).toEqual([
+          '{"event":"import","account_id":7,"project_id":"project-id","threat_model_ids":["model-a","model-b"],"elements":3,"threats":4,"mitigations":5,"notes":6}',
+        ]);
       } finally {
         log.restore();
       }

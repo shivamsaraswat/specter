@@ -1,7 +1,7 @@
 import { ElementRecord, MitigationRecord, ThreatModelRecord, ThreatRecord } from '@specter/core';
 import type { Database } from '@specter/db';
 import type { Transaction } from 'kysely';
-import { kdb } from '../db.js';
+import { kdb } from './db.js';
 
 // What a report is built from: one threat model and everything in it, read in a single repeatable-read transaction
 // so that all four reads see one state of the database (research #3). Read separately, a delete in between could

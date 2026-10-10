@@ -8,6 +8,9 @@ export const LIST_ORDER_DESCRIPTION = 'Oldest first by creation time; ties broke
 
 export type Method = 'get' | 'post' | 'patch' | 'delete';
 
+// The request body limit of every operation that does not set its own.
+export const DEFAULT_BODY_LIMIT = 100 * 1024;
+
 interface OperationContext<B, Q> {
   // The :id path parameter, already validated. Empty for a path that has none.
   id: string;
@@ -17,6 +20,11 @@ interface OperationContext<B, Q> {
   query: Q;
   accountId: number;
 }
+
+// The policy a downloaded document is sent with, in place of the app's own. The app's policy is for the pages it
+// serves; a download is not one, and the API only answers a request that carries a token, so a browser cannot be sent to
+// it. If one ever were shown at this origin, this sandboxes it and allows nothing at all, whatever the document says.
+export const DOWNLOAD_CSP = "sandbox; default-src 'none'";
 
 // What a handler of a text operation returns: a document to download rather than a JSON record (the report).
 export interface TextResult {
@@ -40,6 +48,9 @@ export interface Operation<B = never, Q = unknown> {
   description?: string;
   // `name` is the schema's component name in the OpenAPI document.
   body?: { name: string; schema: z.ZodType<B> };
+  // The most bytes the request body may hold. Defaults to DEFAULT_BODY_LIMIT. The body is read only after the request
+  // is authenticated (research #2), so a raised limit costs the server nothing for anyone without an account.
+  bodyLimit?: number;
   // The query string. The schema is a shared one from core and carries its own error message, which is the 400.
   query?: { name: string; schema: z.ZodType<Q> };
   response?: { name: string; schema: z.ZodType; list?: boolean };

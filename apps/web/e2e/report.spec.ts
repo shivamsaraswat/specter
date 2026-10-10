@@ -8,9 +8,10 @@ import { apiRequest, apiToken, expect, seedElements, seedModel, signInAsNewAccou
 // The button sits in the page header, and the canvas below it: a taller window keeps both on screen.
 test.use({ viewport: { width: 1400, height: 1500 } });
 
-// Phase 2 / Milestone 5 in a real browser against the built app and a real database (quickstart §2): the Definition
-// of Done's "export a Markdown report". The diagram is seeded through the batch endpoint, as the other specs do; the
-// statuses and mitigations are set through the API, because threat-workflow.spec.ts drives those from the page.
+// Phase 2 / Milestone 5 and 6 in a real browser against the built app and a real database (quickstart §2): the Definition
+// of Done's "export a Markdown report and an OTM file" and "re-import the OTM round-trip without losing elements or
+// threats". The diagram is seeded through the batch endpoint, as the other specs do; the statuses and mitigations are
+// set through the API, because threat-workflow.spec.ts drives those from the page.
 
 interface StoredThreat {
   id: string;
@@ -29,7 +30,7 @@ async function textOf(download: Download): Promise<string> {
   return readFileSync(await download.path(), 'utf8');
 }
 
-test('exports a Markdown report of a drawn, analysed and worked-through threat model (US1, SC-007)', async ({ page, baseURL, browser: chromium }, testInfo) => {
+test('exports a Markdown report and an OTM file of a drawn, analysed and worked-through threat model, and imports the OTM back (US1, SC-007)', async ({ page, baseURL, browser: chromium }, testInfo) => {
   const base = baseURL ?? '';
   const token = await apiToken(base);
   const label = 'report';
@@ -140,7 +141,35 @@ test('exports a Markdown report of a drawn, analysed and worked-through threat m
   await expect(readerPage.locator('article.element > h4')).toHaveText(['E2 · Process · API', 'E3 · Data store · Orders DB', 'E4 · Data flow · SQL', 'E5 · External entity · Browser', 'E6 · Data flow · HTTPS request']);
   await reader.close();
 
-  // 6. The same button on the Diagram view; with a diagram change still being saved, it asks first.
+  // 6. The OTM file, from the same view (Phase 2 Definition of Done): imported into another project through the preview
+  // it is the same model, with every element and threat, and the statuses the work gave them.
+  const [otmDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download OTM file' }).click()]);
+  expect(otmDownload.suggestedFilename()).toMatch(/^report-\d+-[0-9a-f]{6}-\d{4}-\d{2}-\d{2}\.otm\.json$/);
+  const target = await seedModel(base, token, 'report-target');
+  await page.goto(`/projects/${target.projectId}`);
+  await page.getByRole('button', { name: 'Import threat model' }).click();
+  await page.getByLabel('File to import').setInputFiles(await otmDownload.path());
+  await expect(page.getByRole('heading', { name: 'Ready to import' })).toBeVisible();
+  await expect(page.getByText('OTM file')).toBeVisible();
+  await expect(page.getByText('Everything in this file will be imported.')).toBeVisible();
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page).toHaveURL(/\/threat-models\/[0-9a-f-]{36}$/);
+  const importedId = /\/threat-models\/([0-9a-f-]{36})$/.exec(page.url())?.[1] ?? '';
+  expect(importedId).not.toBe(modelId);
+  // Nothing was left out, so the page carries no "What the import left out" region.
+  await expect(page.getByRole('heading', { name: /\S/, level: 1 })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'What the import left out' })).toHaveCount(0);
+  const read = async (id: string, kind: string) => (await apiRequest(base, token, 'GET', `/api/v1/threat-models/${id}/${kind}`)).body as Record<string, string | null>[];
+  const summarise = async (id: string) => ({
+    elements: (await read(id, 'elements')).map((e) => `${e.type}|${e.name}`).sort(),
+    threats: (await read(id, 'threats')).map((t) => `${t.title}|${t.category}|${t.status}|${t.status_reason ?? ''}|${t.risk}|${t.origin}`).sort(),
+    mitigations: (await read(id, 'mitigations')).map((m) => `${m.description}|${m.status}`).sort(),
+  });
+  expect(await summarise(importedId)).toEqual(await summarise(modelId));
+  expect(((await apiRequest(base, token, 'POST', `/api/v1/threat-models/${importedId}/threats/generate`, {})).body as { created: number }).created).toBe(0);
+  await page.goto(`/threat-models/${modelId}`);
+
+  // 7. The same button on the Diagram view; with a diagram change still being saved, it asks first.
   await page.getByRole('link', { name: 'Diagram' }).click();
   // Saves are held, never answered, until the route is removed; removing it lets the held request through, and the
   // saves that follow (the rename) are not held at all.

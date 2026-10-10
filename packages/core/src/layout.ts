@@ -8,10 +8,13 @@ import type { ElementType } from './enums.js';
 // one row, and a member keeps its stored position. A node's size is not stored; it is drawn at the
 // fixed size for its type (NODE_SIZE). A trust boundary stores its own width and height.
 
-const COORDINATE_LIMIT = 100_000;
+// How far from the origin a position may be, and (below) the largest a trust boundary may be. Exported so an import can
+// leave out or enlarge what another tool drew by the same limits.
+export const COORDINATE_LIMIT = 100_000;
 // The least a trust boundary's width or height may be; the editor's resizer uses it too.
 export const MIN_BOUNDARY_SIZE = 40;
-const MAX_SIZE = 100_000;
+export const MAX_BOUNDARY_SIZE = 100_000;
+const MAX_SIZE = MAX_BOUNDARY_SIZE;
 const MIN_SIZE = MIN_BOUNDARY_SIZE;
 
 const coordinate = z.number().min(-COORDINATE_LIMIT).max(COORDINATE_LIMIT);
