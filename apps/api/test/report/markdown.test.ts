@@ -246,7 +246,7 @@ describe('hostile text (FR-014, SC-005)', () => {
 
   it('turns nothing the user typed into a link, image, script, markup or code', () => {
     expect(markdown.match(/^```mermaid$/gm)).toHaveLength(1);
-    expect(html).not.toMatch(/<(img|script|iframe|b|i|em|code|pre|del)[ >/]/i);
+    expect(html).not.toMatch(/<(img|script|iframe|b|i|em|code|pre|del)[\s>/]/i);
     expect(html).not.toMatch(/<\/(b|script)>/i);
   });
 
