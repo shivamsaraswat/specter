@@ -56,28 +56,34 @@ test('is ready within 15 seconds at 1,000 elements and about 15,000 threats, and
   // The load is the one claimed: every element has the most threats the library gives any.
   expect(created).toBe(1000 * candidates);
   await signInAsNewAccount(page, base);
-  await page.goto(`/threat-models/${modelId}`);
-  await expect(page.getByText(`Showing ${created} of ${created} threats`)).toBeVisible({ timeout: 60_000 });
+
+  // A page of its own for each download, and nothing else going on in it, so the time is the time of the report.
+  const open = async (): Promise<Page> => {
+    const fresh = await page.context().newPage();
+    await fresh.goto(`/threat-models/${modelId}`);
+    await expect(fresh.getByText(`Showing ${created} of ${created} threats`)).toBeVisible({ timeout: 60_000 });
+    return fresh;
+  };
 
   for (const format of ['markdown', 'html'] as const) {
-    const started = Date.now();
-    const pending = Promise.all([page.waitForEvent('download', { timeout: 120_000 }), page.getByRole('button', { name: BUTTONS[format] }).click()]);
-    // While the report is being made, the page still answers: another view opens.
-    await page.getByRole('link', { name: 'Diagram' }).click();
-    await expect(page).toHaveURL(/\/diagram$/, { timeout: 10_000 });
-    const [download] = await pending;
-    const size = statSync(await download.path()).size;
-    const ms = Date.now() - started;
-    console.log(`report, large, ${format}: ${ms} ms, ${megabytes(size)}`);
-    test.info().annotations.push({ type: `large ${format}`, description: `${ms} ms, ${megabytes(size)}` });
+    const fresh = await open();
+    const { ms, download } = await downloaded(fresh, format, 'large');
     expect(ms, `${format} took ${ms} ms`).toBeLessThanOrEqual(15_000);
     // Every threat once (SC-002) in a file of tens of megabytes.
     const body = readFileSync(await download.path(), 'utf8');
     const threats = format === 'markdown' ? body.match(/^##### /gm)?.length : body.match(/<article class="threat">/g)?.length;
     expect(threats).toBe(created);
-    await page.getByRole('link', { name: 'Threats' }).click();
-    await expect(page.getByText(`Showing ${created} of ${created} threats`)).toBeVisible({ timeout: 60_000 });
+    await fresh.close();
   }
+
+  // While a report is being made the page still answers: another view opens. This is read from what the app says about
+  // itself ("Report downloaded."), not from the browser's own download event, which is what the timings above are for.
+  const busy = await open();
+  await busy.getByRole('button', { name: BUTTONS.markdown }).click();
+  await busy.getByRole('link', { name: 'Diagram' }).click();
+  await expect(busy).toHaveURL(/\/diagram$/, { timeout: 10_000 });
+  await expect(busy.locator('.report-bar [role="status"]')).toHaveText('Report downloaded.', { timeout: 60_000 });
+  await busy.close();
 });
 
 test('leaves the flowchart out of a diagram with more than 400 flows, and the HTML report still draws every one (FR-007a)', async ({
