@@ -87,7 +87,8 @@ test('exports a Markdown report of a drawn, analysed and worked-through threat m
   // The diagram, as a flowchart: one boundary and the two flows.
   const chart = /```mermaid\n([\s\S]*?)\n```/.exec(markdown)?.[1] ?? '';
   expect(chart.match(/subgraph /g)).toHaveLength(1);
-  expect(chart.match(/-->/g)).toHaveLength(2);
+  // Two arrows: the pieces either side of each `-->` (counted as text, not parsed).
+  expect(chart.split('-->').length - 1).toBe(2);
   expect(chart).toContain('"HTTPS request"');
   expect(chart).toContain('"SQL"');
 

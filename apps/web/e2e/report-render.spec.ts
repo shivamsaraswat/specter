@@ -1,8 +1,18 @@
-import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { apiToken, expect, test } from './fixtures.js';
-import { BOUNDARY_NAME, FLOW_NAME, HOSTILE, HOSTILE_MULTILINE, HOSTILE_TICKET, LONG_TOKEN, MODEL_NAME, fetchReport, seedHostileModel } from './hostile.js';
+import {
+  BOUNDARY_NAME,
+  FLOW_NAME,
+  HOSTILE,
+  HOSTILE_MULTILINE,
+  HOSTILE_TICKET,
+  LONG_TOKEN,
+  MODEL_NAME,
+  downloadHtmlReport,
+  fetchReport,
+  seedHostileModel,
+} from './hostile.js';
 
 // Phase 2 / Milestone 5 in a real browser (quickstart §3): what a viewer really does with the report. Markdown is
 // stood in for by micromark in the API's unit tests; Mermaid is not a stand-in here, it is the real thing.
@@ -68,6 +78,7 @@ test('Mermaid draws the report’s flowchart, with every name as typed (FR-007, 
 const squash = (value: string): string => value.replaceAll(/\s+/g, ' ').trim();
 
 test('the HTML file opens offline from disk, runs nothing, loads nothing and shows every string as typed (FR-014, FR-016, SC-005)', async ({
+  page: app,
   browser,
   baseURL,
 }, testInfo) => {
@@ -75,7 +86,7 @@ test('the HTML file opens offline from disk, runs nothing, loads nothing and sho
   const token = await apiToken(base);
   const hostile = await seedHostileModel(base, token, 'html');
   const file = testInfo.outputPath('report.html');
-  writeFileSync(file, await fetchReport(base, token, hostile.modelId, 'html'));
+  await downloadHtmlReport(app, base, hostile.modelId, file);
 
   // A page that can reach nothing: every request but the document itself is refused, and counted.
   const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
@@ -124,12 +135,16 @@ test('the HTML file opens offline from disk, runs nothing, loads nothing and sho
   await context.close();
 });
 
-test('the HTML file prints as a report and fits the page, on a narrow screen and a wide one (FR-008, FR-019, FR-020)', async ({ browser, baseURL }, testInfo) => {
+test('the HTML file prints as a report and fits the page, on a narrow screen and a wide one (FR-008, FR-019, FR-020)', async ({
+  page: app,
+  browser,
+  baseURL,
+}, testInfo) => {
   const base = baseURL ?? '';
   const token = await apiToken(base);
   const hostile = await seedHostileModel(base, token, 'print');
   const file = testInfo.outputPath('print.html');
-  writeFileSync(file, await fetchReport(base, token, hostile.modelId, 'html'));
+  await downloadHtmlReport(app, base, hostile.modelId, file);
 
   for (const width of [320, 1024]) {
     const context = await browser.newContext({ viewport: { width, height: 800 } });

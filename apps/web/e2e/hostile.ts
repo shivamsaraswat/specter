@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { apiRequest, expect, seedElements, seedModel } from './fixtures.js';
+import type { Page } from '@playwright/test';
+import { apiRequest, expect, seedElements, seedModel, signInAsNewAccount } from './fixtures.js';
 
 // Every kind of Markdown, HTML and Mermaid syntax, one string each (contracts/report-format.md "Escaping fixtures").
 // The API trims the text it stores, so a seeded value is `.trim()` of these.
@@ -121,6 +122,15 @@ export async function seedHostileModel(base: string, token: string, label: strin
 
 function expectOk(res: { status: number; body: unknown }, status = 200): void {
   if (res.status !== status) throw new Error(`Seeding failed with status ${res.status}: ${JSON.stringify(res.body)}`);
+}
+
+// The HTML report as a person gets it: signed in, from the page's own button, kept from the download. Nothing is
+// written by hand, so what is opened afterwards is exactly what the app handed to the browser.
+export async function downloadHtmlReport(page: Page, base: string, modelId: string, file: string): Promise<void> {
+  await signInAsNewAccount(page, base);
+  await page.goto(`/threat-models/${modelId}`);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download HTML report (print or save as PDF)' }).click()]);
+  await download.saveAs(file);
 }
 
 // The report of a threat model, fetched with a bearer token, as an API client would.
