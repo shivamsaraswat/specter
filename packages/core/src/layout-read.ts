@@ -1,4 +1,5 @@
-import { boundaryLayoutSchema, elementLayoutSchema, type ElementRecord } from '@specter/core';
+import { boundaryLayoutSchema, elementLayoutSchema } from './layout.js';
+import type { ElementRecord } from './schemas/element.js';
 
 // Reads the layout stored on an element, which may be anything for a row written before the layout
 // had a shape (research #3): what is not valid for the element's type counts as not placed.

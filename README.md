@@ -163,7 +163,7 @@ If `ADMIN_USERNAME`/`ADMIN_PASSWORD` are unset, no user is seeded and nobody can
 | POST | `/api/login` | no | `{username, password}` → `{token}` (for API clients). Failed attempts are throttled: `429` |
 | POST | `/api/session` and `/api/session/{refresh,logout,logout-all}` | cookie | The browser's sign-in and session. Used by the web app, not meant for scripts. See [API.md](API.md) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
-| | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list, and generating threats from a diagram (28 operations) |
+| | `/api/v1/…` | Bearer | Projects, threat models, elements, threats and mitigations: create, read, update, delete and list, generating threats from a diagram, and downloading a report of a threat model as Markdown or HTML (29 operations) |
 | GET | `/api/v1/openapi.json` | Bearer | The OpenAPI 3.1 document for v1 |
 
 The v1 request bodies are validated, ids are UUIDs, and lists come oldest first. The original `/api/threats` endpoints are gone.

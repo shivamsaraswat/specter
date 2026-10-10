@@ -1,5 +1,4 @@
-import { ELEMENT_TYPES, type ElementRecord } from '@specter/core';
-import { TYPE_LABELS } from '../diagram/type-labels.js';
+import { ELEMENT_TYPES, TYPE_LABELS, type ElementRecord } from '@specter/core';
 
 // The elements of a threat model as the options of a select: grouped by type, each group by name. A group with no
 // element is left out. Names are children, so markup in one is shown as text.

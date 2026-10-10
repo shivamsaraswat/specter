@@ -78,10 +78,28 @@ function documentedResponse(op: Operation<unknown>, status: number): JsonObject 
   const description = STATUS_DESCRIPTIONS[status] ?? 'An error';
   if (status !== op.status) return { description, content: { 'application/json': { schema: ref('Error') } } };
   if (status === 204) return { description };
+  // A download is text, in one of the media types the operation lists.
+  if (op.text) return { description, content: Object.fromEntries(op.text.mediaTypes.map((type) => [type, { schema: { type: 'string' } }])) };
   // The OpenAPI document itself has no Zod schema, so it is described as a plain object.
   let schema: JsonObject = { type: 'object' };
   if (op.response) schema = op.response.list ? { type: 'array', items: ref(op.response.name) } : ref(op.response.name);
   return { description, content: { 'application/json': { schema } } };
+}
+
+// The query parameters of an operation, one per property of its schema, from the same JSON Schema conversion the
+// bodies use.
+function queryParameters(op: Operation<unknown>): JsonObject[] {
+  if (op.query === undefined) return [];
+  const converted = z.toJSONSchema(op.query.schema, { io: 'input', target: 'draft-2020-12', unrepresentable: 'any' }) as {
+    properties?: Record<string, JsonObject>;
+    required?: string[];
+  };
+  return Object.entries(converted.properties ?? {}).map(([name, schema]) => ({
+    name,
+    in: 'query',
+    required: converted.required?.includes(name) ?? false,
+    schema,
+  }));
 }
 
 function documentedOperation(op: Operation<unknown>): JsonObject {
@@ -90,12 +108,15 @@ function documentedOperation(op: Operation<unknown>): JsonObject {
   const responses: JsonObject = {};
   for (const status of [...statuses].sort((a, b) => a - b)) responses[String(status)] = documentedResponse(op, status);
 
-  const parameters = [...op.path.matchAll(/:(\w+)/g)].map(([, name]) => ({
-    name,
-    in: 'path',
-    required: true,
-    schema: { type: 'string', format: 'uuid' },
-  }));
+  const parameters = [
+    ...[...op.path.matchAll(/:(\w+)/g)].map(([, name]) => ({
+      name,
+      in: 'path',
+      required: true,
+      schema: { type: 'string', format: 'uuid' },
+    })),
+    ...queryParameters(op),
+  ];
   return {
     operationId: op.operationId,
     summary: op.summary,

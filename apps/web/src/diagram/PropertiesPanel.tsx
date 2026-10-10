@@ -1,15 +1,13 @@
-import { ELEMENT_FLAGS, ElementInputBase, type ElementRecord, type ElementType } from '@specter/core';
+import { ELEMENT_FLAGS, ElementInputBase, TYPE_LABELS, flagLabel, type ElementRecord, type ElementType } from '@specter/core';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { FormField } from '../components/FormField.js';
 import { useDiagramEditor } from './DiagramEditorProvider.js';
 import { FlagRadioGroup } from './FlagRadioGroup.js';
-import { flagLabel } from './flag-labels.js';
 import { descendantsOf, setBoundaryAction } from './membership.js';
 import type { DiagramAction } from './operations.js';
 import { buildProperties, carryFlags, flagState, splitProperties, withFlag, type FlagState } from './properties-model.js';
 import { TagsEditor } from './TagsEditor.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 
 // A node may become another node type; a data flow and a trust boundary never change type (FR-006).

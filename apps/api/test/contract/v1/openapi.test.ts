@@ -25,6 +25,7 @@ const OPERATION_IDS = [
   'listThreatModelElements',
   'listThreatModelThreats',
   'listThreatModelMitigations',
+  'getThreatModelReport',
   'createElement',
   'getElement',
   'updateElement',
@@ -47,8 +48,9 @@ const METHODS = ['get', 'post', 'patch', 'delete'] as const;
 interface OperationObject {
   operationId: string;
   description?: string;
+  parameters?: { name: string; in: string; required: boolean; schema: Record<string, unknown> }[];
   requestBody?: unknown;
-  responses: Record<string, unknown>;
+  responses: Record<string, { content?: Record<string, { schema: unknown }> }>;
 }
 
 // Only what these tests read. The document is compared as plain JSON, as a client would receive it.
@@ -141,7 +143,7 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       for (const { path } of operationsOf(doc())) expect(path.startsWith('/api/v1/'), path).toBe(true);
     });
 
-    it('describes exactly the 29 operations of the contract', () => {
+    it('describes exactly the 30 operations of the contract', () => {
       const ids = operationsOf(doc()).map(({ op }) => op.operationId);
       expect(ids.sort()).toEqual([...OPERATION_IDS].sort());
     });
@@ -171,6 +173,28 @@ describe('the generated OpenAPI document (FR-020, FR-021, SC-006)', () => {
       expect(document.components.schemas.ElementBatchResult).toBeDefined();
       expect(op?.description).toContain('all or none');
       expect(op?.description).toContain('200');
+    });
+
+    it('documents getThreatModelReport with its format parameter, its text content and its errors (contracts/report-api.md)', () => {
+      const op = doc().paths['/api/v1/threat-models/{id}/report']?.get;
+      expect(op?.operationId).toBe('getThreatModelReport');
+      expect(op?.requestBody).toBeUndefined();
+      expect(op?.parameters?.map((p) => [p.name, p.in, p.required])).toEqual([
+        ['id', 'path', true],
+        ['format', 'query', true],
+      ]);
+      expect(op?.parameters?.[1]?.schema).toMatchObject({ type: 'string', enum: ['markdown', 'html'] });
+      expect(Object.keys(op?.responses ?? {}).sort()).toEqual(['200', '400', '401', '404', '500']);
+      expect(op?.responses['200']?.content).toEqual({ 'text/markdown': { schema: { type: 'string' } }, 'text/html': { schema: { type: 'string' } } });
+      expect(op?.responses['404']?.content).toHaveProperty('application/json');
+      expect(op?.description).toContain('attachment');
+    });
+
+    it('documents a query parameter on no other operation', () => {
+      for (const { op } of operationsOf(doc())) {
+        const inQuery = (op.parameters ?? []).filter((p) => p.in === 'query');
+        if (op.operationId !== 'getThreatModelReport') expect(inQuery, op.operationId).toEqual([]);
+      }
     });
 
     it('documents generateThreats with its {} body, its counts and its errors (contracts/generate-threats-api.md)', () => {

@@ -1,7 +1,5 @@
-import type { ElementRecord } from '@specter/core';
+import { TYPE_LABELS, absoluteRects, resolveLayout, type ElementRecord, type Rect, type Resolved } from '@specter/core';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
-import { absoluteRects, resolveLayout, type Rect, type Resolved } from './placement.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 // Turns a threat model's elements into what React Flow draws. Elements keep their positions relative
 // to their parent boundary (data-model.md "layout"), which is also React Flow's sub-flow model, so a

@@ -145,9 +145,10 @@ dialog::backdrop {
   }
 }
 
-/* The generate-threats bar and a stale threat's marker (Phase 2 / Milestone 3). Colours come from the
-   same tokens as everything else, so they follow the page's contrast. */
-.generate-bar {
+/* The generate-threats bar and a stale threat's marker (Phase 2 / Milestone 3), and the report bar beside it
+   (Milestone 5). Colours come from the same tokens as everything else, so they follow the page's contrast. */
+.generate-bar,
+.report-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -155,7 +156,8 @@ dialog::backdrop {
   margin: 0.75rem 0;
 }
 
-.generate-bar p {
+.generate-bar p,
+.report-bar p {
   margin: 0;
   color: var(--muted);
 }

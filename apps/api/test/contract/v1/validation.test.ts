@@ -89,7 +89,7 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
   }
 
   it('covers every resource operation', () => {
-    expect(resourceOperations).toHaveLength(28);
+    expect(resourceOperations).toHaveLength(29);
   });
 
   describe('path ids', () => {
@@ -120,7 +120,9 @@ describe('rejecting invalid requests (FR-005, FR-006, FR-007, FR-009, FR-010, FR
       // The batch endpoint needs a valid body to get past validation; elements-batch.test.ts covers its 404.
       for (const op of resourceOperations.filter((o) => o.path.includes(':id') && o.operationId !== 'batchElements')) {
         const key = resourceOf(op.path);
-        const res = await c.raw(withId(op.path, randomUUID()), {
+        // The report is asked for in a format; the id and the format are checked before the threat model is looked up.
+        const path = op.operationId === 'getThreatModelReport' ? `${withId(op.path, randomUUID())}?format=markdown` : withId(op.path, randomUUID());
+        const res = await c.raw(path, {
           method: op.method.toUpperCase(),
           body: op.method === 'patch' ? JSON.stringify(resources[key].patch) : undefined,
         });

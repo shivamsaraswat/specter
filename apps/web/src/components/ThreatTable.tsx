@@ -1,11 +1,10 @@
-import type { ElementRecord, MitigationRecord, ThreatRecord, ThreatUpdateInput } from '@specter/core';
+import { describeStale, type ElementRecord, type MitigationRecord, type ThreatRecord, type ThreatUpdateInput } from '@specter/core';
 import { Fragment, useMemo, useState } from 'react';
 import { writeErrorMessage } from '../api/errors.js';
 import { useDeleteThreat, useUpdateThreat } from '../api/queries.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { ErrorSummary } from './ErrorSummary.js';
 import { MitigationList } from './MitigationList.js';
-import { describeStale } from './stale-text.js';
 import { StatusControl } from './StatusControl.js';
 import { ThreatForm } from './ThreatForm.js';
 

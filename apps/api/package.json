@@ -34,6 +34,8 @@
     "@seriousme/openapi-schema-validator": "^2.11.0",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/pg": "^8.23.1"
+    "@types/pg": "^8.23.1",
+    "micromark": "^4.0.3",
+    "micromark-extension-gfm": "^3.0.0"
   }
 }

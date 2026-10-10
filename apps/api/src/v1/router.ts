@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
 import { HttpError, mapStorageError } from './errors.js';
 import { allOperations } from './openapi.js';
-import { parseBody, parseId, type Method, type Operation } from './operation.js';
+import { parseBody, parseId, parseQuery, type Method, type Operation, type TextResult } from './operation.js';
 import { logWrite, type WriteAction } from './write-log.js';
 
 export const v1Router = Router();
@@ -29,14 +29,31 @@ function idOf(record: unknown): string | undefined {
   return typeof record.id === 'string' ? record.id : undefined;
 }
 
+// A document to download. `attachment` names the file (Express encodes the name for the header), and nothing may keep
+// a copy: it holds a whole threat model.
+function sendText(res: Response, result: TextResult): void {
+  res.attachment(result.filename);
+  res.type(result.contentType);
+  res.setHeader('Cache-Control', 'no-store');
+  if (result.csp !== undefined) res.setHeader('Content-Security-Policy', result.csp);
+  res.status(200).send(result.body);
+}
+
 function handle(op: Operation<unknown>): RequestHandler {
   return async (req, res) => {
     try {
       const id = op.path.includes(':id') ? parseId(req.params.id) : '';
+      // The id is checked first, then the query, then the body, then whether the record exists.
+      const query = op.query ? parseQuery(op.query.schema, req.query) : undefined;
       const body = op.body ? parseBody(op.body.schema, req.body, op.method === 'patch') : undefined;
       const accountId = res.locals.accountId as number;
 
-      const result = await op.handler({ id, body, accountId });
+      const result = await op.handler({ id, body, query, accountId });
+
+      if (op.text) {
+        sendText(res, result as TextResult);
+        return;
+      }
 
       // The write has happened by now, so it is logged even if building the response fails.
       const action = WRITE_ACTIONS[op.method];

@@ -8,17 +8,30 @@ export const LIST_ORDER_DESCRIPTION = 'Oldest first by creation time; ties broke
 
 export type Method = 'get' | 'post' | 'patch' | 'delete';
 
-interface OperationContext<B> {
+interface OperationContext<B, Q> {
   // The :id path parameter, already validated. Empty for a path that has none.
   id: string;
   // The request body, already parsed with the operation's schema.
   body: B;
+  // The query string, already parsed with the operation's schema.
+  query: Q;
   accountId: number;
+}
+
+// What a handler of a text operation returns: a document to download rather than a JSON record (the report).
+export interface TextResult {
+  body: string;
+  // The full Content-Type, charset included.
+  contentType: string;
+  // The file name the document is saved under.
+  filename: string;
+  // Replaces the app's Content-Security-Policy on this response only.
+  csp?: string;
 }
 
 // One API operation. The router mounts exactly these and the OpenAPI document describes exactly
 // these, so the two cannot disagree (research #3).
-export interface Operation<B = never> {
+export interface Operation<B = never, Q = unknown> {
   method: Method;
   // Express style, relative to the /api/v1 mount: '/projects/:id'.
   path: string;
@@ -27,23 +40,34 @@ export interface Operation<B = never> {
   description?: string;
   // `name` is the schema's component name in the OpenAPI document.
   body?: { name: string; schema: z.ZodType<B> };
+  // The query string. The schema is a shared one from core and carries its own error message, which is the 400.
+  query?: { name: string; schema: z.ZodType<Q> };
   response?: { name: string; schema: z.ZodType; list?: boolean };
+  // Marks an operation whose handler returns a TextResult, sent as a download. Lists the media types it can answer
+  // with, for the OpenAPI document, which has no JSON schema for them.
+  text?: { mediaTypes: readonly string[] };
   status: 200 | 201 | 204;
   // Error statuses to document, besides 401 and 500 (every operation) and 400 and 413 (every body).
   errors: number[];
   // Set on every create, update and delete: it is what gets written to the write log.
   recordType?: RecordType;
-  handler(ctx: OperationContext<B>): Promise<unknown>;
+  handler(ctx: OperationContext<B, Q>): Promise<unknown>;
 }
 
-// Lets a resource file declare an operation with its body type inferred, in an array of them.
-export function defineOperation<B = never>(operation: Operation<B>): Operation<unknown> {
+// Lets a resource file declare an operation with its body and query types inferred, in an array of them.
+export function defineOperation<B = never, Q = never>(operation: Operation<B, Q>): Operation<unknown> {
   return operation;
 }
 
 export function parseId(raw: unknown): string {
   const result = uuid.safeParse(raw);
   if (!result.success) throw new HttpError(400, 'Invalid id');
+  return result.data;
+}
+
+export function parseQuery<Q>(schema: z.ZodType<Q>, raw: unknown): Q {
+  const result = schema.safeParse(raw);
+  if (!result.success) throw new HttpError(400, result.error.issues[0]?.message ?? 'Invalid query');
   return result.data;
 }
 
