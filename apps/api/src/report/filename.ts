@@ -5,7 +5,7 @@
 const MAX_SLUG_LENGTH = 60;
 const EXTENSIONS = { markdown: 'md', html: 'html' } as const;
 
-function slugOf(name: string): string {
+export function fileSlug(name: string): string {
   const slug = name
     .normalize('NFKD')
     // NFKD splits an accented letter into the letter and a combining mark; the mark is dropped, not hyphenated.
@@ -19,5 +19,5 @@ function slugOf(name: string): string {
 }
 
 export function reportFilename(name: string, format: keyof typeof EXTENSIONS, exportedAt: Date): string {
-  return `${slugOf(name)}-report-${exportedAt.toISOString().slice(0, 10)}.${EXTENSIONS[format]}`;
+  return `${fileSlug(name)}-report-${exportedAt.toISOString().slice(0, 10)}.${EXTENSIONS[format]}`;
 }

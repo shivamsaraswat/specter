@@ -1,7 +1,7 @@
-import { Router, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
+import express, { Router, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
 import { HttpError, mapStorageError } from './errors.js';
 import { allOperations } from './openapi.js';
-import { parseBody, parseId, parseQuery, type Method, type Operation, type TextResult } from './operation.js';
+import { DEFAULT_BODY_LIMIT, parseBody, parseId, parseQuery, type Method, type Operation, type TextResult } from './operation.js';
 import { logWrite, type WriteAction } from './write-log.js';
 
 export const v1Router = Router();
@@ -75,15 +75,21 @@ function handle(op: Operation<unknown>): RequestHandler {
   };
 }
 
-const register: Record<Method, (path: string, handler: RequestHandler) => unknown> = {
-  get: (path, handler) => v1Router.get(path, handler),
-  post: (path, handler) => v1Router.post(path, handler),
-  patch: (path, handler) => v1Router.patch(path, handler),
-  delete: (path, handler) => v1Router.delete(path, handler),
+const register: Record<Method, (path: string, ...handlers: RequestHandler[]) => unknown> = {
+  get: (path, ...handlers) => v1Router.get(path, ...handlers),
+  post: (path, ...handlers) => v1Router.post(path, ...handlers),
+  patch: (path, ...handlers) => v1Router.patch(path, ...handlers),
+  delete: (path, ...handlers) => v1Router.delete(path, ...handlers),
 };
 
+// A body is read here, per operation, after requireV1Token and requireAccount have run, and never earlier (research
+// #2): the app's own parser skips /api/v1. A parse error or a body over the operation's limit reaches the app's error
+// handler as it always did, so the 400 and 413 answers are unchanged.
 v1Router.use(requireAccount);
-for (const op of allOperations) register[op.method](op.path, handle(op));
+for (const op of allOperations) {
+  const readBody = op.body ? [express.json({ limit: op.bodyLimit ?? DEFAULT_BODY_LIMIT })] : [];
+  register[op.method](op.path, ...readBody, handle(op));
+}
 
 // Express decodes a path parameter itself, before parseId runs, and throws a URIError (status 400)
 // for one that cannot be percent-decoded, such as "%zz". Every v1 parameter is an id, so that is a

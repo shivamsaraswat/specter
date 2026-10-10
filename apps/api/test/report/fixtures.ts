@@ -12,7 +12,7 @@ import {
   type ThreatStatus,
   type StrideCategory,
 } from '@specter/core';
-import type { Snapshot } from '../../src/report/snapshot.js';
+import type { Snapshot } from '../../src/snapshot.js';
 
 // Snapshots for the report tests: plain records that parse with core's record schemas (data-model.md §1).
 

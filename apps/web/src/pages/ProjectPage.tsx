@@ -11,6 +11,7 @@ import {
 import { GONE_MESSAGE, isGone, writeErrorMessage } from '../api/errors.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { ErrorSummary } from '../components/ErrorSummary.js';
+import { ImportThreatModel } from '../components/ImportThreatModel.js';
 import { LoadError } from '../components/LoadError.js';
 import { ProjectForm } from '../components/ProjectForm.js';
 import { ThreatModelForm } from '../components/ThreatModelForm.js';
@@ -115,6 +116,7 @@ function ThreatModels({ projectId }: { projectId: string }) {
           New threat model
         </button>
       )}
+      <ImportThreatModel projectId={projectId} />
       {models.isPending && <p>Loading…</p>}
       {models.isError && <LoadError error={models.error} onRetry={() => void models.refetch()} />}
       {models.data && models.data.length === 0 && <p>No threat models yet.</p>}

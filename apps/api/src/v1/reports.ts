@@ -3,9 +3,9 @@ import { buildReport, type Report } from '../report/model.js';
 import { reportFilename } from '../report/filename.js';
 import { renderHtml } from '../report/html.js';
 import { renderMarkdown } from '../report/markdown.js';
-import { readSnapshot, withSnapshot } from '../report/snapshot.js';
+import { readSnapshot, withSnapshot } from '../snapshot.js';
 import { orNotFound } from './errors.js';
-import { defineOperation, type Operation, type TextResult } from './operation.js';
+import { DOWNLOAD_CSP, defineOperation, type Operation, type TextResult } from './operation.js';
 
 // One renderer per format core's ReportQuery allows. Typed by that list, so a format without a renderer, or a
 // renderer without a format, is a type error.
@@ -15,11 +15,6 @@ interface Renderer {
   // Replaces the app's Content-Security-Policy on this response only.
   csp?: string;
 }
-
-// The app's own Content-Security-Policy is for the pages it serves. A downloaded report is not one, and the API only
-// answers a request that carries a token, so a browser cannot be sent to it. If one ever were shown at this origin, this
-// policy sandboxes it and allows nothing at all, whatever the document says.
-const DOWNLOAD_CSP = "sandbox; default-src 'none'";
 
 const RENDERERS: Record<ReportFormat, Renderer> = {
   markdown: { contentType: 'text/markdown; charset=utf-8', render: renderMarkdown },

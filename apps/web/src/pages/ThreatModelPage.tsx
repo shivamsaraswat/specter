@@ -1,5 +1,5 @@
 import { THREAT_MODEL_STATUSES, uuid, type ThreatModelStatus } from '@specter/core';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router';
 import { GONE_MESSAGE, isGone, writeErrorMessage } from '../api/errors.js';
 import { useDeleteThreatModel, useProject, useThreatModel, useUpdateThreatModel } from '../api/queries.js';
@@ -7,7 +7,9 @@ import { ConfirmDialog } from '../components/ConfirmDialog.js';
 import { ErrorSummary } from '../components/ErrorSummary.js';
 import { DiagramEditorProvider } from '../diagram/DiagramEditorProvider.js';
 import { LeaveGuard } from '../diagram/LeaveGuard.js';
+import { ExportModel } from '../components/ExportModel.js';
 import { ExportReport } from '../components/ExportReport.js';
+import { ImportLeftOut } from '../components/ImportLeftOut.js';
 import { GenerateThreats } from '../components/GenerateThreats.js';
 import { FormField } from '../components/FormField.js';
 import { LoadError } from '../components/LoadError.js';
@@ -32,6 +34,7 @@ function ThreatModelView({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const title = useRef<HTMLHeadingElement>(null);
 
   // A record that never loaded and is gone is a page that doesn't exist. One that was shown and then
   // deleted elsewhere keeps the page, with the message, so nothing disappears without an explanation.
@@ -75,6 +78,7 @@ function ThreatModelView({ id }: { id: string }) {
         {record.name}
       </nav>
       <ErrorSummary message={gone ? GONE_MESSAGE : actionError} />
+      <ImportLeftOut returnFocusTo={title} />
       {editing ? (
         <ThreatModelForm
           initial={record}
@@ -86,7 +90,9 @@ function ThreatModelView({ id }: { id: string }) {
         />
       ) : (
         <>
-          <h1>{record.name}</h1>
+          <h1 ref={title} tabIndex={-1}>
+            {record.name}
+          </h1>
           <p>
             Methodology: <span>{record.methodology}</span>
           </p>
@@ -135,6 +141,7 @@ function ThreatModelView({ id }: { id: string }) {
       <DiagramEditorProvider key={id} threatModelId={id}>
         <GenerateThreats threatModelId={id} />
         <ExportReport threatModelId={id} />
+        <ExportModel threatModelId={id} />
         <LeaveGuard />
         <Outlet />
       </DiagramEditorProvider>

@@ -87,6 +87,9 @@ importers:
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       micromark:
         specifier: ^4.0.3
         version: 4.0.3

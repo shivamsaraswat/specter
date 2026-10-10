@@ -28,3 +28,26 @@ export function logGeneration(
     }),
   );
 }
+
+// One stdout line per import, after it has committed: who ran it, into which project, which threat models it created
+// and how many records and notes. It takes ids and numbers only, so a name, a file's text or a note's label can never
+// end up in the log (FR-019). The records an import creates get no line of their own.
+export function logImport(
+  accountId: number,
+  projectId: string,
+  threatModelIds: readonly string[],
+  counts: { elements: number; threats: number; mitigations: number; notes: number },
+): void {
+  console.log(
+    JSON.stringify({
+      event: 'import',
+      account_id: accountId,
+      project_id: projectId,
+      threat_model_ids: threatModelIds,
+      elements: counts.elements,
+      threats: counts.threats,
+      mitigations: counts.mitigations,
+      notes: counts.notes,
+    }),
+  );
+}

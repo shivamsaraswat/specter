@@ -3,7 +3,7 @@ import { mermaidLabel } from '../../src/report/escape.js';
 import { renderMarkdown } from '../../src/report/markdown.js';
 import { MERMAID_MAX_EDGES, MERMAID_MAX_TEXT, renderMermaid, type MermaidDiagram } from '../../src/report/mermaid.js';
 import { buildReport, type Report } from '../../src/report/model.js';
-import type { Snapshot } from '../../src/report/snapshot.js';
+import type { Snapshot } from '../../src/snapshot.js';
 import { duplicateNames, element, elementId, empty, EXPORTED_AT, hostile, mitigation, threat, typical } from './fixtures.js';
 
 // research #9, FR-007 and FR-007a: the flowchart a Markdown report carries, and the size above which it is left out.

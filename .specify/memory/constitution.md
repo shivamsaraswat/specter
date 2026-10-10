@@ -1,39 +1,52 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.9.0 → 1.10.0
-Rationale: Phase 2 Milestone 5 (reports, specs/phase-2/milestone-5-reports/) lets a signed-in user take a whole threat
-  model out of the app as a document. It adds one read to `/api/v1`, `GET /api/v1/threat-models/{id}/report?format=markdown|html`,
-  behind the existing authentication, and it adds no table, column, migration or runtime dependency. It is the first
-  operation that answers with a download rather than JSON, and the first that renders user text into other formats
-  (Markdown, a Mermaid flowchart, a standalone HTML file), so the Threat Model section must say how that text is kept
-  from becoming markup, and that a report is by design a copy of a whole threat model outside the app. Principle V
-  requires the section to be kept current for a new entry point. This is a MINOR: it adds to the Threat Model section's
-  mitigations and records two accepted risks, as earlier milestones did, and adds or changes no principle.
-Modified principles: none (Principle V's rule is applied, not changed)
+Version change: 1.10.0 → 1.11.0
+Rationale: Phase 2 Milestone 6 (import and export, specs/phase-2/milestone-6-import-export/) lets a signed-in user take a
+  whole threat model out of the app as a data file (the Specter file or OTM) and bring files in (a Specter file, OTM, or
+  an OWASP Threat Dragon version 2 model). It adds three operations to `/api/v1` behind the existing authentication
+  (`GET /api/v1/threat-models/{id}/export`, `POST /api/v1/projects/{id}/imports/check`, `POST /api/v1/projects/{id}/imports`)
+  and no table, column, migration or runtime dependency. It is the first operation that reads a large body of untrusted
+  content into the database: up to 64 MiB, from a file written by another tool or by hand. It is also the one place a
+  threat other than a manual one can be created outside generation, so the Threat Model section must say how that body is
+  bounded and checked, how provenance is kept, and what the process costs. Principle V requires the section to be kept
+  current for a new entry point. This is a MINOR: it adds to the Threat Model section's mitigations and records accepted
+  risks, as earlier milestones did, and adds or changes no principle.
+Modified principles: none (Principles I and IV are applied, not changed; see "How two principles are applied")
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
+How two principles are applied (neither principle's text changes):
+  - Principle I ("reject unknown shapes"): Specter's own formats stay strict: the request body, the Specter file and every
+    `attributes.specter` object refuse any unknown key. The OTM and Threat Dragon schemas accept members Specter does not
+    read, because every real file from those tools carries some. They are accepted only after `checkBounds` has limited
+    the file's depth and size, and are never walked, stored, logged or echoed. What carries information is listed in the
+    import's summary (FR-016); presentation data is ignored by a listed rule.
+  - Principle IV (detection heuristics as versioned data): the vocabularies an import matches against (OTM component-type
+    keywords, threat and mitigation state words, Threat Dragon's tables, the constants an export writes) are kept as data
+    in `packages/core/src/exchange/mappings.ts`, a module with no logic, and `docs/formats/` prints each table; a test
+    keeps the two equal.
 Threat Model changes:
-  - Trust boundaries: `GET /api/v1/threat-models/{id}/report` joins the notable `/api/v1` endpoints. It is read only,
-    needs a bearer token like every other `/api/v1` operation, and reads the threat model in one repeatable-read,
-    read-only transaction.
-  - Tampering: Mitigated (Phase 2 Milestone 5): user text is escaped for the format it is written into, by one escaper
-    per format (every ASCII punctuation mark for Markdown; decimal entities for a Mermaid label; the five HTML
-    characters for HTML), so it reads back as typed and cannot become a heading, link, image, markup or script. The
-    HTML report is inert by its own policy (a `<meta>` Content-Security-Policy first in its head: no script, no outside
-    resource, its one stylesheet allowed by hash), carries no `style` attribute and no script, and is sent with
-    `sandbox; default-src 'none'`. Real renderers (a CommonMark and GFM parser, Mermaid, a browser opening the file
-    from disk with no network) are used in tests to show it.
-  - Information Disclosure: Accepted risk (Phase 2 Milestone 5): a report carries the whole threat model out of the app
-    by design, into files that are meant to be shared. Once downloaded, Specter can neither protect nor revoke them.
-    A report holds no credential, account name or account id (its header names the threat model, its project and the
-    export time only), the response is `Cache-Control: no-store`, and no part of a report is ever logged.
-  - Denial of Service: Accepted risk (Phase 2 Milestone 5): a report is built in the API process, so one for the
-    largest threat model Milestone 3 allows (about 15,000 threats and 49,000 mitigations, measured at under a second
-    and 13 to 21 MB) occupies it for that time, and any signed-in account can ask. Revisit with the worker (Phase 3)
-    or rate limiting (Phase 6).
-  - Elevation of Privilege: no widening. Any authenticated account could already read every record a report holds.
+  - Trust boundaries: three operations join the notable `/api/v1` endpoints. `/api/v1` now authenticates a request before
+    it reads its body, and each operation sets its own body limit (100 KiB; 64 MiB for the two import operations).
+  - Spoofing (provenance): Accepted risk (Phase 2 Milestone 6): a Specter file, or an OTM file carrying Specter's mark, can
+    claim a threat is rule-generated, with any rule reference. Specter cannot check it; generation then treats that threat
+    as its own. A file with an AI-drafted threat is refused (Principle VI), and every threat from another tool's file is
+    manual. The API's create and update operations still refuse every origin but manual.
+  - Tampering: Mitigated (Phase 2 Milestone 6): a file is bounded (size, nesting depth, value count, by a walk with no
+    recursion), parsed by shared schemas, checked by rules across records that name the place in the file, and written
+    all or nothing. Imported text is stored and shown as text.
+  - Repudiation: Partially mitigated (Phase 2 Milestone 6): one import log line with ids and counts, never content.
+  - Information Disclosure: Accepted risk (Phase 2 Milestone 6): an export carries the whole threat model out of the app by
+    design, as a report does. It holds no account name, account id or credential, is `no-store` and sandboxed, and is
+    never logged.
+  - Denial of Service: Accepted risk (Phase 2 Milestone 6): an import of up to 64 MiB, and an export of the largest threat
+    model, are built in the API process, by a signed-in account, and measured (quickstart §5). The largest threat model
+    Milestone 3 allows imports in about 1.4 seconds and exports in under 0.7; the process's memory peaks at about 470 to 760
+    MB for either, from 108 MB at rest, which one such operation fits on a 1 GiB host and two or more at once may not, so
+    the documentation names 2 GiB as the minimum host for large threat models (README, Deployment).
+  - Elevation of Privilege: no widening. Any authenticated account could already create threat models and read all of
+    them.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -205,7 +218,7 @@ webhook targets.
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
 `/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document; since Phase 2 Milestone 1 `/api/v1`
-includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request, and since Phase 2 Milestone 3 `POST /api/v1/threat-models/{id}/threats/generate`, which creates the threats and mitigations the shipped rules propose for a diagram, and since Phase 2 Milestone 5 `GET /api/v1/threat-models/{id}/report`, which answers with a whole threat model as a Markdown or an HTML document to download),
+includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request, and since Phase 2 Milestone 3 `POST /api/v1/threat-models/{id}/threats/generate`, which creates the threats and mitigations the shipped rules propose for a diagram, and since Phase 2 Milestone 5 `GET /api/v1/threat-models/{id}/report`, which answers with a whole threat model as a Markdown or an HTML document to download, and since Phase 2 Milestone 6 `GET /api/v1/threat-models/{id}/export`, which answers with a whole threat model as a JSON file (the Specter file or OTM), and `POST /api/v1/projects/{id}/imports/check` and `POST /api/v1/projects/{id}/imports`, which read an untrusted file of up to 64 MiB and, for the import, create threat models from it; `/api/v1` has authenticated a request before reading its body since the same milestone),
 where everything but login and
 session sign-in sits behind authentication: a bearer token for `/api/users` and `/api/v1`, the session
 cookie for the rest of `/api/session`. Since Phase 1 Milestone 6 the same app also serves the web app
@@ -240,9 +253,18 @@ webhooks.
   Phase 3, indirect prompt injection from an ingested document could attempt to "spoof"
   instructions to the LLM (e.g. impersonate the system prompt); Principle VI's untrusted-input
   handling is the primary mitigation and MUST be verified before Phase 3 ships.
+  *Accepted risk (Phase 2 Milestone 6)*: provenance can be claimed by a file. A Specter file, or an OTM file carrying Specter's
+  mark, may say a threat is rule-generated, with any rule reference, and Specter cannot check it: generation then treats
+  that threat as its own, so it may flag it stale or match it instead of creating one. Nothing else follows from it. The
+  import is the only path by which a threat other than a manual one can be created outside generation (the API's create and
+  update operations still refuse every other origin); a file with an AI-drafted threat is refused, as Principle VI requires
+  until Phase 3 defines the rationale and citations such a threat carries; and every threat from another tool's file, OTM or
+  Threat Dragon, is imported as manual, with its rule, stale mark and origin never read.
 - **Tampering**: All SQL is parameterized or built with Kysely (`apps/api/src/v1/`,
   `apps/api/src/routes/users.ts`, `apps/api/src/auth.ts`) — no injection path found. Request bodies
-  are size-capped at 100kb (`apps/api/src/app.ts`). CSRF: `/api/v1` and `/api/users` authorize only by a credential the client sends explicitly,
+  are size-capped at 100kb (`apps/api/src/app.ts`, and for `/api/v1` the per-operation parser in
+  `apps/api/src/v1/router.ts`, which runs only after the request is authenticated, so a body is read and sized only for a
+  signed-in account; the two import operations raise the cap to 64 MiB). CSRF: `/api/v1` and `/api/users` authorize only by a credential the client sends explicitly,
   never by a cookie, so no cross-site request can ride a session there. The one cookie
   (`specter_session`) reaches only `/api/session`, is `SameSite=Strict`, and those endpoints also
   require an Origin matching the request's host (Express's `req.host`, which honours
@@ -311,6 +333,18 @@ webhooks.
   from disk with no network, which also listens for policy violations.
   Milestone 4's legacy-link protection is retired with the
   links: Milestone 5 removed the imported data, the link table and the legacy entry table.
+  *Mitigated (Phase 2 Milestone 6)*: an import writes the content of an untrusted file into the database, and is held
+  to the rules of every other write. The file is bounded first, by a walk with its own stack, so a file nested a million
+  levels deep is answered and not a stack overflow: at most 64 levels and 2,000,000 values. Only then is it parsed by
+  schemas in `packages/core` (a Specter file strictly; OTM and Threat Dragon by the members Specter reads, with every
+  other member accepted and never walked, stored or echoed). The rules across records (every reference resolves,
+  nesting without cycles, flows between nodes, the element limit, a reason only on accepted or not applicable threats, a
+  stale mark only on generated threats, one generated threat per element and rule, http and https tickets only) are applied
+  by one function before any row is written, so a refusal names the place in the file and storage never has to refuse. It
+  is all or nothing, in one transaction that locks the project, and the check and the import run the same code. A refusal
+  is a fixed rule with a place, never a value from the file. The one deliberate exception to the lifecycle rules is the
+  one a restore needs: a threat keeps the status it carries, and is then shown as missing what its status needs.
+  Imported text is stored, and shown in the app and in reports, as text.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
   threat-model record or a user — the JWT's `sub` is known per-request but never written to storage.
   This is a notable gap precisely because Repudiation is one of the STRIDE categories the app
@@ -328,7 +362,9 @@ webhooks.
   risk or dismissing a threat is now a decision recorded with a reason, but not with who made it or when. The write
   log names the account and the threat, never the new status or the reason, and no history of earlier statuses is
   kept, so a later change overwrites the decision. Any signed-in account can make it (there are no roles until
-  Phase 6). Phase 6's audit log closes this.
+  Phase 6). Phase 6's audit log closes this. *Partially mitigated (Phase 2 Milestone 6)*: an import writes one stdout line
+  with the account id, the project, the ids of the threat models it created and counts of what it created and left
+  out, never a name or any content of the file. The records it creates get no line of their own.
 - **Information Disclosure**: Generic 500s are returned to clients while details are logged
   server-side only (`apps/api/src/app.ts` error handler); `x-powered-by` is disabled. Secrets are never
   read from committed files (`.env` is gitignored) and can be sourced from AWS Secrets Manager.
@@ -356,7 +392,11 @@ webhooks.
   token is ever in an address or a file name (the web app sends the bearer token in the `Authorization` header and
   saves the answer as a file). The response is `Cache-Control: no-store`, a report's text is never logged, and the
   documents are read in one read-only snapshot, so a report never mixes two states of the threat model.
-- **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
+  *Accepted risk (Phase 2 Milestone 6)*: an export is the same on purpose, as a data file: a whole threat model, in a form
+  made to be kept, moved and shared. It holds no credential, account name or account id (the project's name is in the
+  Specter file for information), is sent `Cache-Control: no-store` with `sandbox; default-src 'none'`, and is never logged.
+  An import's summary shows names and places from the file back to the user who chose it, as text.
+- **Denial of Service**: JSON payloads are capped at 100kb (64 MiB for the two import operations); the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
   specs/phase-1/milestone-5-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
   account, so the throttle cannot be used to lock a user out; behind a load balancer `TRUST_PROXY`
@@ -373,7 +413,20 @@ webhooks.
   built in the API process, in one pass over the whole threat model. For the largest one Milestone 3 allows it
   was measured at under a second, with files of 13 MB (Markdown) and 21 MB (HTML); that time is spent in the
   process, and any signed-in account can ask. It takes no lock, so writers are not held up. Moving it to the worker
-  (Phase 3) or limiting it (Phase 6) is the remedy if it ever matters. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
+  (Phase 3) or limiting it (Phase 6) is the remedy if it ever matters. *Accepted risk (Phase 2 Milestone 6)*: an import is parsed, planned and written, and an export is built, in the
+  API process, by any signed-in account, for a body of up to 64 MiB, which is read only after authentication and bounded
+  in nesting and value count before anything walks it. Measured (quickstart §5): the largest threat model Milestone 3
+  allows (1,000 elements, 15,000 threats, 49,000 mitigations; a Specter file of 25 MB) checks in about 0.2 seconds and
+  imports in about 1.4, and a file of exactly 64 MiB in about 1.9. Another request is answered within 35 ms while it runs, because
+  most of the time is the database, in chunked statements inside one transaction. The memory follows the number of
+  records more than the bytes: the process peaks at about 470 MB on a fresh server and up to about 760 MB after heavy
+  earlier use, from 106 MB at rest. **An export of the same model is as heavy**: it reads every row and builds the whole
+  file in memory, and peaks at about 530 to 640 MB on a fresh server (two at once, about 710 MB). A report (Milestone 5) is
+  of the same kind and was not measured for memory. That fits a 1 GiB host (a `t3.micro`) for one
+  such operation at a time, but two or three at once, or one after heavy use, may not, so a host that will hold threat models
+  of that size is documented as needing at least 2 GiB (README, Deployment; `step6-ec2-guide.md`), and the 64 MiB limit stays
+  (a lower one would not lower the memory). Moving it to the worker (Phase 3) or limiting it
+  (Phase 6) is the remedy. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
   rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
@@ -402,6 +455,9 @@ webhooks.
   *No widening (Phase 2 Milestone 4)*: any authenticated account could already set any status on any threat. The
   lifecycle rules only add conditions to that, and the web app's new ways to link a manual threat to an element
   use an ability the API already had. Who may accept a risk is still every signed-in account, until Phase 6's roles.
+  *No widening (Phase 2 Milestone 6)*: any authenticated account could already create a threat model in any project and read
+  every one. Export reads what was readable; an import creates what could be created by hand, in the project the account
+  names, and never changes an existing threat model.
 
 Any change that adds an endpoint, a new external integration, or a new credential type MUST add
 or update a bullet above in the same PR, whether or not the surrounding phase has been reached.
@@ -442,4 +498,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.10.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-10
+**Version**: 1.11.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-10

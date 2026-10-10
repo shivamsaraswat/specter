@@ -1,7 +1,7 @@
 import type { ReportFormat } from '@specter/core';
 import { useState } from 'react';
-import { apiFetch } from '../api/client.js';
-import { ApiError, isGone, toApiError } from '../api/errors.js';
+import { download } from '../api/download.js';
+import { ApiError, isGone } from '../api/errors.js';
 import { useDiagramEditor } from '../diagram/DiagramEditorProvider.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { ErrorSummary } from './ErrorSummary.js';
@@ -16,27 +16,9 @@ const FORMATS: { format: ReportFormat; label: string; extension: string }[] = [
   { format: 'html', label: 'Download HTML report (print or save as PDF)', extension: 'html' },
 ];
 
-// The name the server chose, from `Content-Disposition: attachment; filename="..."`. A path separator in it would be
-// the server's mistake, but a file name must never be able to leave the downloads folder.
-function nameFrom(header: string | null): string | null {
-  const name = header === null ? null : /filename="([^"]+)"/.exec(header)?.[1];
-  return name === undefined || name === null ? null : name.replaceAll(/[\\/]/g, '-');
-}
-
-async function download(threatModelId: string, { format, extension }: { format: ReportFormat; extension: string }): Promise<void> {
-  const res = await apiFetch(`/api/v1/threat-models/${threatModelId}/report?format=${format}`);
-  if (!res.ok) throw await toApiError(res);
-  const blob = await res.blob();
-  const name = nameFrom(res.headers.get('Content-Disposition')) ?? `threat-model-report-${new Date().toISOString().slice(0, 10)}.${extension}`;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // After the browser has taken the click: revoking at once can cancel a download in some browsers.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+async function save(threatModelId: string, { format, extension }: { format: ReportFormat; extension: string }): Promise<void> {
+  const fallback = `threat-model-report-${new Date().toISOString().slice(0, 10)}.${extension}`;
+  await download(`/api/v1/threat-models/${threatModelId}/report?format=${format}`, fallback);
 }
 
 function failureText(err: unknown): string {
@@ -58,7 +40,7 @@ export function ExportReport({ threatModelId }: { threatModelId: string }) {
     setError(null);
     setMessage('Preparing report…');
     try {
-      await download(threatModelId, chosen);
+      await save(threatModelId, chosen);
       setMessage('Report downloaded.');
     } catch (err) {
       setMessage('');

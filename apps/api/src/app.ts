@@ -53,7 +53,10 @@ export function createApp(options: AppOptions = {}): Express {
   app.set('trust proxy', options.trustProxy ?? config.trustProxy);
   // First, so every response carries the headers, errors and JSON ones included.
   app.use(securityHeaders);
-  app.use(express.json({ limit: '100kb' }));
+  // Not for /api/v1: it authenticates a request before it reads a body, and each operation sets its own limit (research
+  // #2). The pattern ignores case because Express matches routes without regard to it.
+  const readJson = express.json({ limit: '100kb' });
+  app.use((req: Request, res: Response, next: NextFunction) => (/^\/api\/v1(\/|$)/i.test(req.path) ? next() : readJson(req, res, next)));
 
   // Liveness check for the load balancer: no auth, no DB dependency.
   app.get('/health', (_req: Request, res: Response) => {
