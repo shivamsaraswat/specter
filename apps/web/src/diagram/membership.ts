@@ -1,6 +1,5 @@
-import { innermostOf, type ElementRecord } from '@specter/core';
+import { absoluteRects, freeSpotInside, innermostOf, resolveLayout, sizeFor, type ElementRecord, type Rect, type Resolved } from '@specter/core';
 import type { BatchOp, DiagramAction } from './operations.js';
-import { absoluteRects, freeSpotInside, resolveLayout, sizeFor, type Rect, type Resolved } from './placement.js';
 
 // Which boundary an element belongs to follows where it is drawn (spec FR-008 to FR-011, research #13):
 // an element wholly inside a boundary is a member of the innermost boundary that wholly contains it, and

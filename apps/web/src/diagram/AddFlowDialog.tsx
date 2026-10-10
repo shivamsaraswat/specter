@@ -1,7 +1,7 @@
+import { TYPE_LABELS } from '@specter/core';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { connectionProblem, newFlowAction } from './connect.js';
 import { useDiagramEditor } from './DiagramEditorProvider.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 const ENDS = ['external_entity', 'process', 'data_store'];
 

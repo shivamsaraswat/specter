@@ -1905,6 +1905,93 @@
         }
       }
     },
+    "/api/v1/threat-models/{id}/report": {
+      "get": {
+        "operationId": "getThreatModelReport",
+        "summary": "Download a report of one threat model",
+        "description": "The whole threat model as a document: its header, risk summary, diagram, every element grouped by trust boundary with its threats and their mitigations, and the threats not linked to an element. `format` chooses the document. It is sent as an attachment, named after the threat model and the export date, and nothing may keep a copy of it (Cache-Control: no-store). The threat model is read in one snapshot. Two exports of an unchanged threat model differ only in the export time in their header.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "markdown",
+                "html"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "There is no valid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/mitigations": {
       "post": {
         "operationId": "createMitigation",

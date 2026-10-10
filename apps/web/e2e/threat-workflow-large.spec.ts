@@ -1,7 +1,6 @@
-import { ELEMENT_FLAGS } from '@specter/core';
-import { shippedLibrary } from '@specter/threat-library';
 import type { Page } from '@playwright/test';
-import { apiRequest, apiToken, expect, seedModel, signInAsNewAccount, test } from './fixtures.js';
+import { busiest, seed, type NodeType } from './bound.js';
+import { apiToken, expect, signInAsNewAccount, test } from './fixtures.js';
 
 // Phase 2 / Milestone 4, SC-002 and SC-005, in a real browser against the built app and a real database: working
 // through threats stays quick at the size Milestone 3 allows (1,000 elements, about 15,000 threats and 49,000
@@ -10,40 +9,7 @@ import { apiRequest, apiToken, expect, seedModel, signInAsNewAccount, test } fro
 //   PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm --filter @specter/web test:e2e threat-workflow-large
 test.use({ viewport: { width: 1400, height: 1500 } });
 
-type NodeType = 'external_entity' | 'process' | 'data_store';
 const TYPE_LABELS: Record<NodeType, string> = { external_entity: 'External entity', process: 'Process', data_store: 'Data store' };
-
-// The node type and flag set that give one element the most candidates, found in the shipped library, so the test
-// cannot pass at a fraction of the load it claims (as Milestone 3's performance test does).
-function busiest(): { type: NodeType; flags: Record<string, boolean>; candidates: number } {
-  const library = shippedLibrary();
-  let best = { type: 'process' as NodeType, flags: {} as Record<string, boolean>, candidates: 0 };
-  for (const type of ['external_entity', 'process', 'data_store'] as const) {
-    const names = ELEMENT_FLAGS[type];
-    for (let mask = 0; mask < 1 << names.length; mask++) {
-      const flags = Object.fromEntries(names.filter((_, i) => mask & (1 << i)).map((name) => [name, true]));
-      const candidates = library.candidatesFor({ type, name: 'E', properties: { flags } }).length;
-      if (candidates > best.candidates) best = { type, flags, candidates };
-    }
-  }
-  return best;
-}
-
-// Creates `count` elements of one type through the batch endpoint (at most 200 a request), then generates threats.
-async function seed(base: string, token: string, label: string, count: number, type: NodeType, flags: Record<string, boolean>) {
-  const { modelId } = await seedModel(base, token, label);
-  for (let from = 0; from < count; from += 200) {
-    const operations = Array.from({ length: Math.min(200, count - from) }, (_, i) => ({
-      op: 'create',
-      element: { type, name: `Unit ${from + i}`, properties: { flags } },
-    }));
-    const res = await apiRequest(base, token, 'POST', `/api/v1/threat-models/${modelId}/elements/batch`, { operations });
-    if (res.status !== 200) throw new Error(`Seeding elements failed: ${res.status} ${JSON.stringify(res.body)}`);
-  }
-  const run = await apiRequest(base, token, 'POST', `/api/v1/threat-models/${modelId}/threats/generate`, {});
-  if (run.status !== 200) throw new Error(`Generating failed: ${run.status} ${JSON.stringify(run.body)}`);
-  return { modelId, created: (run.body as { created: number }).created };
-}
 
 const elapsedSince = (started: number): number => Date.now() - started;
 const report = (what: string, ms: number): void => console.log(`threat workflow, ${what}: ${ms} ms`);

@@ -1,6 +1,6 @@
-import type { StaleReason } from '@specter/core';
 import { describe, expect, it } from 'vitest';
-import { describeStale } from './stale-text.js';
+import type { StaleReason } from '../src/index.js';
+import { describeStale } from '../src/stale-text.js';
 
 // The wording of contracts/web-ui.md "Stale reason wording".
 const unmet = (...entries: Extract<StaleReason, { reason: 'conditions_unmet' }>['unmet']): StaleReason => ({ reason: 'conditions_unmet', unmet: entries });

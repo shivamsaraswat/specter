@@ -1,4 +1,4 @@
-import type { ElementType } from '@specter/core';
+import type { ElementType } from './enums.js';
 
 // What each kind of element is called on screen.
 export const TYPE_LABELS: Record<ElementType, string> = {

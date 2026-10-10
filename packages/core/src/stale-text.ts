@@ -1,6 +1,6 @@
-import type { StaleReason, UnmetCondition } from '@specter/core';
-import { flagLabel } from '../diagram/flag-labels.js';
-import { TYPE_LABELS } from '../diagram/type-labels.js';
+import { flagLabel } from './flag-labels.js';
+import type { StaleReason, UnmetCondition } from './schemas/stale.js';
+import { TYPE_LABELS } from './type-labels.js';
 
 // How a stale threat explains itself in the threat list (contracts/web-ui.md, "Stale reason wording").
 // Plain strings only: the caller renders them as text.

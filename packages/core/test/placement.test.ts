@@ -1,7 +1,7 @@
-import { NODE_SIZE, type ElementRecord } from '@specter/core';
 import { describe, expect, it } from 'vitest';
-import { freeSpotNear, resolveLayout, type Resolved } from './placement.js';
-import { el, eid } from './test-helpers.js';
+import { NODE_SIZE, type ElementRecord } from '../src/index.js';
+import { freeSpotNear, resolveLayout, type Resolved } from '../src/placement.js';
+import { el, eid } from './element-fixtures.js';
 
 // Elements without a usable layout are drawn at a place chosen here; nothing is saved by it
 // (research #12, FR-020c, SC-007).

@@ -1,4 +1,4 @@
-import { FLAG_HINTS, flagLabel } from './flag-labels.js';
+import { FLAG_HINTS, flagLabel } from '@specter/core';
 import type { FlagState } from './properties-model.js';
 
 const OPTIONS: readonly { value: FlagState; text: string }[] = [

@@ -1,5 +1,7 @@
-import { NODE_SIZE, type ElementRecord, type ElementType } from '@specter/core';
+import type { ElementType } from './enums.js';
 import { positionOf, sizeOf } from './layout-read.js';
+import { NODE_SIZE, type Rect } from './layout.js';
+import type { ElementRecord } from './schemas/element.js';
 
 // Where each element is drawn, when its stored layout cannot say (research #12). Nothing here is saved:
 // an element with no layout is placed on a grid on screen, and its position is stored the first time
@@ -11,13 +13,6 @@ export interface Resolved {
   // Only for a trust boundary.
   width?: number;
   height?: number;
-}
-
-export interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 const GAP = 24;

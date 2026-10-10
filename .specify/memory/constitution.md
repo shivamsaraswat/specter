@@ -1,32 +1,39 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.8.0 → 1.9.0
-Rationale: Phase 2 Milestone 4 (the threat workflow, specs/phase-2/milestone-4-threat-workflow/) puts rules on how a
-  threat's status changes and records why a risk was accepted or a threat dismissed. It adds a column
-  (`threats.status_reason`) and a database rule for where it may be (`threats_status_reason_check`), and it makes
-  `PATCH /api/v1/threats/{id}` and `POST /api/v1/threats` refuse some status changes: a reason is required with
-  `accepted` and `not_applicable`, and a threat moves to `mitigated` only when one of its mitigations is implemented
-  or verified, checked under row locks. It adds no entry point, asset or trust boundary, and widens nothing: any
-  signed-in account could already set any status. Principle V requires the Threat Model section to be kept current
-  for a change to route validation logic. This is a MINOR: it adds to the Threat Model section's mitigations and
-  records a new accepted risk, as earlier milestones did, and adds or changes no principle.
+Version change: 1.9.0 → 1.10.0
+Rationale: Phase 2 Milestone 5 (reports, specs/phase-2/milestone-5-reports/) lets a signed-in user take a whole threat
+  model out of the app as a document. It adds one read to `/api/v1`, `GET /api/v1/threat-models/{id}/report?format=markdown|html`,
+  behind the existing authentication, and it adds no table, column, migration or runtime dependency. It is the first
+  operation that answers with a download rather than JSON, and the first that renders user text into other formats
+  (Markdown, a Mermaid flowchart, a standalone HTML file), so the Threat Model section must say how that text is kept
+  from becoming markup, and that a report is by design a copy of a whole threat model outside the app. Principle V
+  requires the section to be kept current for a new entry point. This is a MINOR: it adds to the Threat Model section's
+  mitigations and records two accepted risks, as earlier milestones did, and adds or changes no principle.
 Modified principles: none (Principle V's rule is applied, not changed)
 Added sections: none (existing section set retained: Core Principles, Threat Model (STRIDE),
   Development Workflow & Quality Gates, Governance)
 Removed sections: none
 Threat Model changes:
-  - Tampering: Mitigated (Phase 2 Milestone 4): the rules for changing a threat's status are enforced by the server
-    for every client; the move into `mitigated` is checked in the same transaction as the change, with the threat
-    and the mitigation it relies on locked, so a concurrent change to that mitigation cannot slip past it; and a
-    reason can sit only on `accepted` and `not_applicable` threats (`threats_status_reason_check`).
-  - Repudiation: Accepted risk (Phase 2 Milestone 4): accepting a risk or dismissing a threat is now a recorded decision
-    with a reason, but nothing records who made it or when. The write log names the account and the threat, never
-    the new status or the reason, and no history is kept. Closed by Phase 6's audit log.
-  - Information Disclosure: Mitigated (Phase 2 Milestone 4): a status reason is user text, bounded at 10,000
-    characters, shown as text and never logged.
-  - Elevation of Privilege: no widening. Any authenticated account could already set any status; the milestone only
-    adds conditions to doing so.
+  - Trust boundaries: `GET /api/v1/threat-models/{id}/report` joins the notable `/api/v1` endpoints. It is read only,
+    needs a bearer token like every other `/api/v1` operation, and reads the threat model in one repeatable-read,
+    read-only transaction.
+  - Tampering: Mitigated (Phase 2 Milestone 5): user text is escaped for the format it is written into, by one escaper
+    per format (every ASCII punctuation mark for Markdown; decimal entities for a Mermaid label; the five HTML
+    characters for HTML), so it reads back as typed and cannot become a heading, link, image, markup or script. The
+    HTML report is inert by its own policy (a `<meta>` Content-Security-Policy first in its head: no script, no outside
+    resource, its one stylesheet allowed by hash), carries no `style` attribute and no script, and is sent with
+    `sandbox; default-src 'none'`. Real renderers (a CommonMark and GFM parser, Mermaid, a browser opening the file
+    from disk with no network) are used in tests to show it.
+  - Information Disclosure: Accepted risk (Phase 2 Milestone 5): a report carries the whole threat model out of the app
+    by design, into files that are meant to be shared. Once downloaded, Specter can neither protect nor revoke them.
+    A report holds no credential, account name or account id (its header names the threat model, its project and the
+    export time only), the response is `Cache-Control: no-store`, and no part of a report is ever logged.
+  - Denial of Service: Accepted risk (Phase 2 Milestone 5): a report is built in the API process, so one for the
+    largest threat model Milestone 3 allows (about 15,000 threats and 49,000 mitigations, measured at under a second
+    and 13 to 21 MB) occupies it for that time, and any signed-in account can ask. Revisit with the worker (Phase 3)
+    or rate limiting (Phase 6).
+  - Elevation of Privilege: no widening. Any authenticated account could already read every record a report holds.
 Deferred / TODO items: none
 Templates requiring follow-up: none checked in this run (scope of this change is the constitution
   file only; dependent templates read it at runtime per the scope guard)
@@ -198,7 +205,7 @@ webhook targets.
 **Trust boundaries (current)**: Internet → load balancer/reverse proxy → Express app
 (`apps/api/src/app.ts`) → PostgreSQL (`apps/api/src/db.ts`); API clients → JSON API (`/api/login`,
 `/api/session`, `/api/users` and `/api/v1`, with its OpenAPI document; since Phase 2 Milestone 1 `/api/v1`
-includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request, and since Phase 2 Milestone 3 `POST /api/v1/threat-models/{id}/threats/generate`, which creates the threats and mitigations the shipped rules propose for a diagram),
+includes `POST /api/v1/threat-models/{id}/elements/batch`, which writes up to 200 elements in one request, and since Phase 2 Milestone 3 `POST /api/v1/threat-models/{id}/threats/generate`, which creates the threats and mitigations the shipped rules propose for a diagram, and since Phase 2 Milestone 5 `GET /api/v1/threat-models/{id}/report`, which answers with a whole threat model as a Markdown or an HTML document to download),
 where everything but login and
 session sign-in sits behind authentication: a bearer token for `/api/users` and `/api/v1`, the session
 cookie for the rest of `/api/session`. Since Phase 1 Milestone 6 the same app also serves the web app
@@ -288,7 +295,20 @@ webhooks.
   database cannot hold this rule itself, because a mitigated threat that later lost its implemented mitigation is a
   legal state. A reason can sit only on an `accepted` or `not_applicable` threat, whoever writes
   (`threats_status_reason_check`), and is at most 10,000 characters. Generating threats never changes
-  a threat's status or reason.
+  a threat's status or reason. *Mitigated (Phase 2 Milestone 5)*: a report writes user text (names, tags, titles,
+  descriptions, reasons, mitigation text, tickets) into three formats, and each has its own escaper in
+  `apps/api/src/report/escape.ts`, so the text reads back exactly as typed and cannot become a heading, a list, a link,
+  an image, markup or a script wherever the file is shown. Markdown: every ASCII punctuation character is
+  backslash-escaped, leading spaces are entities, line breaks are hard breaks and text of more than one line is always
+  in a block quote or list item, and user text is never in a table cell. Mermaid: every character but a letter, a digit
+  or a space is a decimal entity inside double quotes, and node and group ids come from the order of the report, never
+  from a name. HTML: the five characters `& < > " '` are entities in text and in attributes. A ticket is a link only if
+  it is an http or https address. The HTML file is inert whatever its text says: a `<meta>` Content-Security-Policy,
+  first in its head, allows no script and nothing from outside but its one stylesheet, by hash; the file has no `style`
+  attribute (the hash does not cover one) and no script, and the API sends it with `sandbox; default-src 'none'`
+  in place of the app's policy. The report's tests use real parsers, not matching of strings: a CommonMark and GFM
+  parser for the Markdown, Mermaid in a browser with no network for the flowchart, and a browser opening the HTML
+  from disk with no network, which also listens for policy violations.
   Milestone 4's legacy-link protection is retired with the
   links: Milestone 5 removed the imported data, the link table and the legacy entry table.
 - **Repudiation**: *Open risk*: no audit trail persists who created, updated, or deleted a
@@ -330,6 +350,12 @@ webhooks.
   removes it for good: an entry deleted on purpose can no longer reappear through a new endpoint. *Mitigated
   (Phase 2 Milestone 4)*: a status reason is user text, like a threat's description. The web app draws it as text, the
   API's refusals of it are fixed messages that never repeat it, and no log line holds it or the status it explains.
+  *Accepted risk (Phase 2 Milestone 5)*: a report is a copy of a whole threat model outside the app, made on purpose
+  for people to share. Once it is downloaded, Specter can neither protect it nor take it back. It holds no credential,
+  account name or account id: the header names the threat model, its project and the time of the export, and no
+  token is ever in an address or a file name (the web app sends the bearer token in the `Authorization` header and
+  saves the answer as a file). The response is `Cache-Control: no-store`, a report's text is never logged, and the
+  documents are read in one read-only snapshot, so a report never mixes two states of the threat model.
 - **Denial of Service**: JSON payloads are capped at 100kb; the `/api/v1` lists are not
   paginated, so a list returns every matching record (low risk at current expected scale, and
   specs/phase-1/milestone-5-rest-api-v1 SC-007 measures a threat model of 1,000 threats and 2,000 mitigations). *Partially mitigated (Phase 1 Milestone 6)*: failed sign-ins are throttled per address, never per
@@ -343,7 +369,11 @@ webhooks.
   1,000-element limit times the shipped library's per-element maximum (today up to 15 threats and 49
   mitigations for one element), so about 15,000 threats and 49,000 mitigations, written in chunked
   statements inside one transaction (measured at about a second). It holds the threat model's lock for its duration, so element
-  writes to that model, and other runs on it, queue behind it. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
+  writes to that model, and other runs on it, queue behind it. *Accepted risk (Phase 2 Milestone 5)*: a report is
+  built in the API process, in one pass over the whole threat model. For the largest one Milestone 3 allows it
+  was measured at under a second, with files of 13 MB (Markdown) and 21 MB (HTML); that time is spent in the
+  process, and any signed-in account can ask. It takes no lock, so writers are not held up. Moving it to the worker
+  (Phase 3) or limiting it (Phase 6) is the remedy if it ever matters. *Open risk*: no rate limiting on any other route. *Planned*: Phase 6 adds general
   rate limiting explicitly; from Phase 3, LLM calls
   MUST carry per-job token/cost caps (plan.md Phase 3 Milestone 2) so a single job cannot
   exhaust provider budget or worker capacity.
@@ -412,4 +442,4 @@ rather than silently merged. This file is the source of truth for "why" a rule e
 implementation-level how-to guidance belongs in `README.md`, `API.md`, `CONTRIBUTING.md`, `SECURITY.md`, `plan.md`, and code
 comments, not here.
 
-**Version**: 1.9.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-09
+**Version**: 1.10.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-10-10

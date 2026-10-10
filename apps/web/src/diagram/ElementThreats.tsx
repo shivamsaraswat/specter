@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { ThreatRecord } from '@specter/core';
+import { TYPE_LABELS, type ThreatRecord } from '@specter/core';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { keys, useCreateThreat, useElements, useModelMitigations, useThreats } from '../api/queries.js';
@@ -8,7 +8,6 @@ import { focusNeighbour, leftMessage } from '../components/row-focus.js';
 import { ThreatForm } from '../components/ThreatForm.js';
 import { ThreatTable } from '../components/ThreatTable.js';
 import { useDiagramEditor } from './DiagramEditorProvider.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 // The threats of the one element selected on the canvas or in the elements list, below the diagram
 // (contracts/web-ui.md §4; spec FR-011 to FR-014). It is the threat table of the Threats tab, so a threat is

@@ -1,4 +1,4 @@
-import { MAX_ELEMENTS, NODE_SIZE } from '@specter/core';
+import { DEFAULT_BOUNDARY_SIZE, MAX_ELEMENTS, NODE_SIZE, absoluteRects, freeSpotNear, resolveLayout } from '@specter/core';
 import { useReactFlow, useStore } from '@xyflow/react';
 import { useState } from 'react';
 import { AddFlowDialog } from './AddFlowDialog.js';
@@ -7,7 +7,6 @@ import { useDiagramEditor } from './DiagramEditorProvider.js';
 import { useUndoShortcuts } from './keyboard.js';
 import { newElementId } from './operations.js';
 import { SaveStatus } from './SaveStatus.js';
-import { DEFAULT_BOUNDARY_SIZE, absoluteRects, freeSpotNear, resolveLayout } from './placement.js';
 
 type AddableNode = keyof typeof NODE_SIZE | 'trust_boundary';
 

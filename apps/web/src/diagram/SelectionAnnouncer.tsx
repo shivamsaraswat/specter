@@ -1,7 +1,6 @@
-import type { ElementRecord } from '@specter/core';
+import { TYPE_LABELS, type ElementRecord } from '@specter/core';
 import { useDiagramEditor } from './DiagramEditorProvider.js';
 import { openThreatsText } from './flow.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 // What a screen reader is told when one element is selected (spec FR-026): what it is and what it is called,
 // and where it is, which for a node is its trust boundary and for a flow its two ends. Empty for no selection

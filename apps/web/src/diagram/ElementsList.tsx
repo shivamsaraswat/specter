@@ -1,6 +1,5 @@
-import type { ElementRecord } from '@specter/core';
+import { TYPE_LABELS, type ElementRecord } from '@specter/core';
 import { useDiagramEditor } from './DiagramEditorProvider.js';
-import { TYPE_LABELS } from './type-labels.js';
 
 const GROUP = { trust_boundary: 0, data_flow: 2 } as const;
 const groupOf = (element: ElementRecord): number => GROUP[element.type as keyof typeof GROUP] ?? 1;

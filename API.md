@@ -14,7 +14,7 @@ The web app at `/` uses the same v1 API. Scripts and other API clients use `POST
 | POST | `/api/login` | no | `{username, password}` → `{token}`. After repeated failures it answers `429` ([below](#sign-in-throttling)) |
 | POST | `/api/session`, `/api/session/refresh`, `/api/session/logout`, `/api/session/logout-all` | session cookie | The web app's sign-in and session, [below](#browser-sessions) |
 | POST | `/api/users` | Bearer | `{username, password}` → `{id, username}`; password 8–72 bytes |
-| | `/api/v1/…` | Bearer | The threat model API: 28 operations, listed [below](#v1-operations) |
+| | `/api/v1/…` | Bearer | The threat model API: 29 operations, listed [below](#v1-operations) |
 
 ## v1 operations
 
@@ -23,7 +23,7 @@ All paths below are under `/api/v1`. Ids are UUIDs.
 | Resource | Operations |
 | --- | --- |
 | Projects | `GET /projects`, `POST /projects`, `GET`/`PATCH`/`DELETE /projects/{id}`, `GET /projects/{id}/threat-models` |
-| Threat models | `POST /threat-models`, `GET`/`PATCH`/`DELETE /threat-models/{id}`, `GET /threat-models/{id}/elements`, `…/threats`, `…/mitigations`, `POST /threat-models/{id}/threats/generate` (`generateThreats`) |
+| Threat models | `POST /threat-models`, `GET`/`PATCH`/`DELETE /threat-models/{id}`, `GET /threat-models/{id}/elements`, `…/threats`, `…/mitigations`, `POST /threat-models/{id}/threats/generate` (`generateThreats`), `GET /threat-models/{id}/report` (`getThreatModelReport`) |
 | Elements | `POST /elements`, `GET`/`PATCH`/`DELETE /elements/{id}`, `POST /threat-models/{id}/elements/batch` (`batchElements`) |
 | Threats | `POST /threats`, `GET`/`PATCH`/`DELETE /threats/{id}`, `GET /threats/{id}/mitigations` |
 | Mitigations | `POST /mitigations`, `GET`/`PATCH`/`DELETE /mitigations/{id}` |
@@ -211,6 +211,23 @@ curl -s "${H[@]}" -d "{\"operations\":[
   {\"op\":\"update\",\"id\":\"$ELEMENT\",\"changes\":{\"name\":\"Payment API v2\"}}
 ]}" localhost:3000/api/v1/threat-models/$MODEL/elements/batch
 ```
+
+### Downloading a report
+
+`GET /threat-models/{id}/report?format=markdown` and `…?format=html` answer with the whole threat model as a document, to keep, attach or print. `format` is required and is one of `markdown` or `html`; anything else, a repeated `format` or any other parameter is a `400` (`format must be markdown or html`).
+
+```sh
+curl -s "${H[@]}" -o report.md "localhost:3000/api/v1/threat-models/$MODEL/report?format=markdown"
+curl -s "${H[@]}" -OJ "localhost:3000/api/v1/threat-models/$MODEL/report?format=html"   # saved under the name the server gives
+```
+
+- The answer is an attachment (`Content-Disposition`), named after the threat model and the day of the export in UTC, such as `payments-api-report-2026-10-10.md`. The name holds only lower-case letters, digits and hyphens. `Cache-Control: no-store`: nothing is to keep a copy.
+- Both documents hold the same things in the same order: the threat model's name, project, methodology and status and the time of the export (UTC); the risk summary, the same numbers as the summary on the Threats view; the diagram; every element, grouped by trust boundary, with its type, technology tags and security flags (a data flow also says what it joins and whether it crosses a trust boundary), and each of its threats with its risk, status, reason, origin, stale and missing-what-its-status-needs markers and its mitigations; and the threats not linked to an element. Threats come most serious first.
+- The **Markdown** draws the diagram as a Mermaid flowchart, which GitHub and many wikis show as a picture. A diagram too big for them (more than 400 flows, or a flowchart of more than 40,000 characters) is replaced by a note that says so, because they show an error in its place; the element sections give the same structure as text, and the HTML report draws all of it.
+- The **HTML** is one self-contained file. It opens and prints the same offline, with no Specter session and no network, and runs no script. Use the browser's *Print* and choose *Save as PDF* for a PDF. It draws the diagram where the editor shows it.
+- What was typed is shown as typed in both: a name, title or note that contains Markdown, HTML or a Mermaid keyword is text, not markup. A ticket is a link only if it is an `http` or `https` address.
+- The same unchanged threat model gives the same document each time, apart from the export time in its header, so a report kept in a repository shows what changed.
+- A report is read in one snapshot, so it never mixes two states of the threat model. It changes nothing, writes no log line, and holds no credential or account name. `404` if the threat model does not exist.
 
 ### Read, change and list
 
