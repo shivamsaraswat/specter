@@ -234,7 +234,6 @@ const READS = 'Specter imports Specter files (version 1), OTM 0.2.0 files in JSO
 test('refuses a file that cannot be imported, saying why, and leaves nothing behind (US4, SC-004)', async ({ page, baseURL }, testInfo) => {
   const base = baseURL ?? '';
   const token = await apiToken(base);
-  const source = await seed(base, token, 'refused');
   const target = await seedModel(base, token, 'refused-target');
   await signInAsNewAccount(page, base);
   const models = async () => ((await apiRequest(base, token, 'GET', `/api/v1/projects/${target.projectId}/threat-models`)).body as unknown[]).length;
@@ -244,12 +243,36 @@ test('refuses a file that cannot be imported, saying why, and leaves nothing beh
     if (request.method() === 'POST' && request.url().includes('/imports')) imports.push(request.url());
   });
 
-  // 1. A broken reference: a flow whose source is not in the file. The check names the rule and its place.
-  const exported = (await apiRequest(base, token, 'GET', `/api/v1/threat-models/${source.modelId}/export?format=specter`)).body as ExportedFile & Record<string, unknown>;
-  const flow = exported.elements.findIndex((element) => (element as unknown as { type: string }).type === 'data_flow');
-  (exported.elements[flow] as unknown as Record<string, unknown>).source_element_id = 'nobody';
+  // 1. A broken reference: a flow whose source is not in the file. The check names the rule and its place. The file is
+  // written here, not taken from the app, so nothing the server sent is written to disk.
+  const element = (id: string, type: string, name: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    type,
+    name,
+    properties: {},
+    layout: null,
+    parent_boundary_id: null,
+    source_element_id: null,
+    target_element_id: null,
+    ...extra,
+  });
+  const flow = 2;
+  const brokenFile = {
+    format: 'specter',
+    format_version: 1,
+    exported_at: '2026-10-10T09:30:00.000Z',
+    project: { name: 'Payments' },
+    threat_model: { name: 'Broken reference', methodology: 'STRIDE', status: 'draft' },
+    elements: [
+      element('e-browser', 'external_entity', 'Browser'),
+      element('p-api', 'process', 'API'),
+      element('f-request', 'data_flow', 'Request', { source_element_id: 'nobody', target_element_id: 'p-api' }),
+    ],
+    threats: [],
+    mitigations: [],
+  };
   const broken = testInfo.outputPath('broken.json');
-  writeFileSync(broken, JSON.stringify(exported));
+  writeFileSync(broken, JSON.stringify(brokenFile));
   await chooseFile(page, target.projectId, broken);
   await expect(page.getByText("This file can't be imported")).toBeVisible();
   await expect(page.getByText(`file.elements.${flow}.source_element_id: must refer to an external entity, process or data store in this file`)).toBeVisible();
